@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import threading
 from datetime import timedelta
 from typing import Any
 
 import requests
 from django.conf import settings
+from django.db import close_old_connections
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status as http_status
@@ -49,46 +51,74 @@ def _tear_status(probability: float) -> str:
     return "NORMAL"
 
 
-def _capture_alarm_evidence(alarm: Alarm) -> None:
+def _capture_alarm_evidence(alarm_id: int) -> None:
+    """Capture evidence without blocking telemetry ingestion.
+
+    This lightweight background thread is sufficient for the current single-site
+    deployment. A production multi-site deployment can replace it with Celery or
+    another durable task queue without changing the API contract.
+    """
     if not settings.EVIDENCE_CAPTURE_ENABLED:
         return
 
-    payload = {
-        "alarm_id": alarm.id,
-        "conveyor_id": alarm.conveyor.code,
-        "code": alarm.code,
-        "severity": alarm.severity,
-        "message": alarm.message,
-        "created_at": alarm.created_at.isoformat(),
-    }
+    close_old_connections()
     try:
-        response = requests.post(
-            f"{settings.VISION_SERVICE_URL}/evidence",
-            json=payload,
-            timeout=settings.EVIDENCE_CAPTURE_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        evidence = response.json()
-        alarm.snapshot_object = str(evidence.get("snapshot_object", ""))
-        alarm.clip_object = str(evidence.get("clip_object", ""))
-        alarm.evidence_status = (
-            Alarm.EvidenceStatus.READY
-            if alarm.snapshot_object or alarm.clip_object
-            else Alarm.EvidenceStatus.FAILED
-        )
-        alarm.evidence_error = "" if alarm.evidence_status == Alarm.EvidenceStatus.READY else "No evidence objects returned."
-    except (requests.RequestException, ValueError, TypeError) as exc:
-        alarm.evidence_status = Alarm.EvidenceStatus.FAILED
-        alarm.evidence_error = str(exc)[:500]
+        alarm = Alarm.objects.select_related("conveyor").get(pk=alarm_id)
+        payload = {
+            "alarm_id": alarm.id,
+            "conveyor_id": alarm.conveyor.code,
+            "code": alarm.code,
+            "severity": alarm.severity,
+            "message": alarm.message,
+            "created_at": alarm.created_at.isoformat(),
+        }
+        try:
+            response = requests.post(
+                f"{settings.VISION_SERVICE_URL}/evidence",
+                json=payload,
+                timeout=settings.EVIDENCE_CAPTURE_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            evidence = response.json()
+            alarm.snapshot_object = str(evidence.get("snapshot_object", ""))
+            alarm.clip_object = str(evidence.get("clip_object", ""))
+            alarm.evidence_status = (
+                Alarm.EvidenceStatus.READY
+                if alarm.snapshot_object or alarm.clip_object
+                else Alarm.EvidenceStatus.FAILED
+            )
+            alarm.evidence_error = (
+                ""
+                if alarm.evidence_status == Alarm.EvidenceStatus.READY
+                else "No evidence objects returned."
+            )
+        except (requests.RequestException, ValueError, TypeError) as exc:
+            alarm.evidence_status = Alarm.EvidenceStatus.FAILED
+            alarm.evidence_error = str(exc)[:500]
 
-    alarm.save(
-        update_fields=[
-            "snapshot_object",
-            "clip_object",
-            "evidence_status",
-            "evidence_error",
-        ]
-    )
+        alarm.save(
+            update_fields=[
+                "snapshot_object",
+                "clip_object",
+                "evidence_status",
+                "evidence_error",
+            ]
+        )
+    except Alarm.DoesNotExist:
+        return
+    finally:
+        close_old_connections()
+
+
+def _queue_alarm_evidence(alarm: Alarm) -> None:
+    if not settings.EVIDENCE_CAPTURE_ENABLED:
+        return
+    threading.Thread(
+        target=_capture_alarm_evidence,
+        args=(alarm.id,),
+        name=f"alarm-evidence-{alarm.id}",
+        daemon=True,
+    ).start()
 
 
 def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> Alarm | None:
@@ -113,7 +143,7 @@ def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> A
             else Alarm.EvidenceStatus.NONE
         ),
     )
-    _capture_alarm_evidence(alarm)
+    _queue_alarm_evidence(alarm)
     return alarm
 
 
@@ -316,6 +346,21 @@ def acknowledge_alarm(request, alarm_id: int):
     alarm.acknowledged = True
     alarm.save(update_fields=["acknowledged"])
     return Response(AlarmSerializer(alarm).data)
+
+
+@api_view(["POST"])
+def recapture_alarm_evidence(request, alarm_id: int):
+    alarm = get_object_or_404(Alarm, pk=alarm_id)
+    if not settings.EVIDENCE_CAPTURE_ENABLED:
+        return Response(
+            {"detail": "Evidence capture is disabled."},
+            status=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    alarm.evidence_status = Alarm.EvidenceStatus.PENDING
+    alarm.evidence_error = ""
+    alarm.save(update_fields=["evidence_status", "evidence_error"])
+    _queue_alarm_evidence(alarm)
+    return Response(AlarmSerializer(alarm).data, status=http_status.HTTP_202_ACCEPTED)
 
 
 @api_view(["POST"])
