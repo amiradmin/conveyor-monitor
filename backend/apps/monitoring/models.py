@@ -48,10 +48,13 @@ class Alarm(models.Model):
         FAILED = "FAILED", "Failed"
 
     conveyor = models.ForeignKey(Conveyor, on_delete=models.CASCADE, related_name="alarms")
+    condition_key = models.CharField(max_length=32, blank=True, db_index=True)
     code = models.CharField(max_length=100)
     severity = models.CharField(max_length=16, choices=Severity.choices)
     message = models.CharField(max_length=500)
     acknowledged = models.BooleanField(default=False)
+    active = models.BooleanField(default=False, db_index=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
     evidence_status = models.CharField(
         max_length=16,
         choices=EvidenceStatus.choices,
