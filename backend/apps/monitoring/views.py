@@ -3,12 +3,14 @@ from __future__ import annotations
 import threading
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
 from django.db import close_old_connections
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from minio import Minio
 from rest_framework import status as http_status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -49,6 +51,23 @@ def _tear_status(probability: float) -> str:
     if probability >= settings.TEAR_WARNING_PROBABILITY:
         return "WARNING"
     return "NORMAL"
+
+
+def _minio_client(endpoint_value: str, *, secure: bool) -> Minio:
+    raw = endpoint_value.strip()
+    endpoint = raw
+    resolved_secure = secure
+    if "://" in raw:
+        parsed = urlparse(raw)
+        endpoint = parsed.netloc
+        resolved_secure = parsed.scheme == "https"
+    return Minio(
+        endpoint,
+        access_key=settings.MINIO_ROOT_USER,
+        secret_key=settings.MINIO_ROOT_PASSWORD,
+        secure=resolved_secure,
+        region=settings.MINIO_REGION,
+    )
 
 
 def _capture_alarm_evidence(alarm_id: int) -> None:
@@ -338,6 +357,51 @@ def events(request):
         queryset = queryset.filter(acknowledged=acknowledged == "true")
 
     return Response(AlarmSerializer(queryset[:limit], many=True).data)
+
+
+@api_view(["GET"])
+def alarm_evidence(request, alarm_id: int):
+    alarm = get_object_or_404(Alarm, pk=alarm_id)
+    if alarm.evidence_status != Alarm.EvidenceStatus.READY:
+        return Response(
+            {
+                "status": alarm.evidence_status,
+                "detail": alarm.evidence_error or "Evidence is not ready yet.",
+            },
+            status=http_status.HTTP_409_CONFLICT,
+        )
+
+    if not alarm.snapshot_object and not alarm.clip_object:
+        return Response(
+            {"status": alarm.evidence_status, "detail": "No evidence objects are attached to this alarm."},
+            status=http_status.HTTP_404_NOT_FOUND,
+        )
+
+    client = _minio_client(settings.MINIO_PUBLIC_ENDPOINT, secure=settings.MINIO_PUBLIC_SECURE)
+    expires = timedelta(seconds=max(60, settings.EVIDENCE_URL_TTL_SECONDS))
+
+    snapshot_url = (
+        client.presigned_get_object(settings.MINIO_BUCKET, alarm.snapshot_object, expires=expires)
+        if alarm.snapshot_object
+        else ""
+    )
+    clip_url = (
+        client.presigned_get_object(settings.MINIO_BUCKET, alarm.clip_object, expires=expires)
+        if alarm.clip_object
+        else ""
+    )
+
+    return Response(
+        {
+            "alarm_id": alarm.id,
+            "status": alarm.evidence_status,
+            "snapshot_url": snapshot_url,
+            "clip_url": clip_url,
+            "snapshot_object": alarm.snapshot_object,
+            "clip_object": alarm.clip_object,
+            "expires_in_seconds": max(60, settings.EVIDENCE_URL_TTL_SECONDS),
+        }
+    )
 
 
 @api_view(["POST"])
