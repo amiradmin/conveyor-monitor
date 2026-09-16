@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="760" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071522" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0B2034" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="760" height="220" rx="24" fill="url(#bg)"/>
+  <g transform="translate(14 27) scale(1.25)" stroke="#EEF5FC" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <rect x="12" y="78" width="90" height="28" rx="14"/>
+    <circle cx="30" cy="92" r="7"/>
+    <circle cx="58" cy="92" r="7"/>
+    <circle cx="86" cy="92" r="7"/>
+    <path d="M34 77V58h25v19"/>
+    <path d="M42 58v-8h10v8"/>
+    <rect x="57" y="18" width="21" height="15" rx="3"/>
+    <path d="M78 21h11M89 21v11"/>
+    <path d="M62 35 48 50M70 35l-7 16M76 35l4 16" stroke-dasharray="4 7" opacity=".85"/>
+    <rect x="75" y="46" width="41" height="29" rx="5"/>
+    <path d="M87 61h7l4-8 6 17 5-9h6"/>
+    <path d="M95 75v8M86 83h18"/>
+  </g>
+  <circle cx="119.4" cy="58.9" r="3.1" fill="#7DD3FC"/>
+  <path d="M191 45v130" stroke="#32485F" stroke-width="3" stroke-linecap="round"/>
+  <text x="228" y="96" fill="#F5F8FC" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="55" font-weight="650" letter-spacing="-1.6">Conveyor</text>
+  <text x="228" y="158" fill="#F5F8FC" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="55" font-weight="650" letter-spacing="-1.6">AI Monitor</text>
+</svg>
