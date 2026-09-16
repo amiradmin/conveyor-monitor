@@ -283,7 +283,7 @@ export default function App({ lang, setLang, onLogout }) {
   }, [data, t])
 
   const activeAlarm = useMemo(
-    () => events.find((event) => !event.acknowledged && (event.severity === 'CRITICAL' || event.severity === 'WARNING')) || null,
+    () => events.find((event) => event.active && !event.acknowledged && (event.severity === 'CRITICAL' || event.severity === 'WARNING')) || null,
     [events],
   )
 
@@ -363,10 +363,13 @@ export default function App({ lang, setLang, onLogout }) {
             {events.length === 0 ? (
               <div className="event-empty"><span className="event-dot ok"/>{t.noRecentEvents}</div>
             ) : events.map((event) => (
-              <div className={`event-row live-event-row ${event.acknowledged ? 'is-acknowledged' : ''}`} key={event.id}>
+              <div className={`event-row live-event-row ${event.acknowledged && !event.active ? 'is-acknowledged' : ''}`} key={event.id}>
                 <time>{eventTime(event.created_at, lang)}</time>
                 <span className={`event-dot ${eventTone(event.severity)}`}/>
-                <strong>{eventTitle(event, t)}</strong>
+                <strong className="event-title-with-state">
+                  <span>{eventTitle(event, t)}</span>
+                  <small className={`event-condition-state ${event.active ? 'active' : 'recovered'}`}>{event.active ? t.activeCondition : t.recovered}</small>
+                </strong>
                 <span className="event-detail">{event.message}</span>
                 <div className="event-actions">
                   {event.evidence_status === 'READY' && event.snapshot_object && (
