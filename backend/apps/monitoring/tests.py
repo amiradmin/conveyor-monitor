@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -96,3 +98,41 @@ class MonitoringApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["code"], "A1")
+
+    def test_evidence_endpoint_rejects_alarm_without_ready_evidence(self) -> None:
+        alarm = Alarm.objects.create(
+            conveyor=self.conveyor,
+            code="A1",
+            severity=Alarm.Severity.WARNING,
+            message="pending",
+            evidence_status=Alarm.EvidenceStatus.PENDING,
+        )
+
+        response = self.client.get(f"/api/events/{alarm.id}/evidence/")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["status"], Alarm.EvidenceStatus.PENDING)
+
+    @patch("apps.monitoring.views._minio_client")
+    def test_evidence_endpoint_returns_presigned_urls(self, client_factory) -> None:
+        alarm = Alarm.objects.create(
+            conveyor=self.conveyor,
+            code="A2",
+            severity=Alarm.Severity.CRITICAL,
+            message="ready",
+            evidence_status=Alarm.EvidenceStatus.READY,
+            snapshot_object="CV-01/alarm/snapshot.jpg",
+            clip_object="CV-01/alarm/pre_event.mp4",
+        )
+        minio_client = MagicMock()
+        minio_client.presigned_get_object.side_effect = [
+            "http://localhost:9000/snapshot-signed",
+            "http://localhost:9000/clip-signed",
+        ]
+        client_factory.return_value = minio_client
+
+        response = self.client.get(f"/api/events/{alarm.id}/evidence/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["snapshot_url"], "http://localhost:9000/snapshot-signed")
+        self.assertEqual(response.data["clip_url"], "http://localhost:9000/clip-signed")
