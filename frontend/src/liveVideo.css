@@ -1,0 +1,16 @@
+.camera-scene .camera-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  background: #050b12;
+}
+
+.camera-scene .lane-line,
+.camera-scene .center-guide,
+.camera-scene .offset-guide,
+.camera-scene .live-badge {
+  pointer-events: none;
+}
