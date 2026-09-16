@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+import { API, authFetch } from './auth'
+import { getTranslation, LANGUAGE_OPTIONS, RTL_LANGUAGES } from './i18n'
 
 function Icon({ name, size = 26, strokeWidth = 1.8 }) {
   const common = {
@@ -46,26 +46,26 @@ function Progress({ value, min = 0, max = 100, marker = false, tone = 'normal' }
   )
 }
 
-function MetricRow({ icon, label, value, unit = '', children, valueClass = '', badge = '' }) {
+function MetricRow({ icon, label, value, unit = '', children, valueClass = '', badge = '', badgeClass = '' }) {
   return (
     <div className="metric-row">
       <div className="metric-icon"><Icon name={icon} size={36} /></div>
       <div className="metric-copy">
         <span className="metric-label">{label}</span>
         <div className={`metric-value ${valueClass}`}>{value}<small>{unit}</small></div>
-        {badge && <span className={`metric-badge ${badge.toLowerCase()}`}>{badge}</span>}
+        {badge && <span className={`metric-badge ${badgeClass}`}>{badge}</span>}
       </div>
       <div className="metric-visual">{children}</div>
     </div>
   )
 }
 
-function Sidebar() {
+function Sidebar({ t }) {
   const items = [
-    ['home', 'Home', true],
-    ['camera', 'Live\nVision', false],
-    ['events', 'Events', false],
-    ['settings', 'Settings', false],
+    ['home', t.home, true],
+    ['camera', t.liveVision, false],
+    ['events', t.events, false],
+    ['settings', t.settings, false],
   ]
 
   return (
@@ -75,7 +75,7 @@ function Sidebar() {
         {items.map(([icon, label, active]) => (
           <button className={`nav-item ${active ? 'active' : ''}`} key={label} type="button">
             <Icon name={icon} size={24} />
-            <span>{label.split('\n').map((part, i) => <span key={i}>{part}</span>)}</span>
+            <span>{label}</span>
           </button>
         ))}
       </nav>
@@ -83,21 +83,29 @@ function Sidebar() {
   )
 }
 
-export default function App() {
+export default function App({ lang, setLang, onLogout }) {
+  const t = getTranslation(lang)
+  const rtl = RTL_LANGUAGES.has(lang)
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     let mounted = true
     const load = () => {
-      fetch(`${API}/demo/status/`)
-        .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      authFetch(`${API}/demo/status/`)
+        .then((r) => {
+          if (r.status === 401) {
+            onLogout()
+            throw new Error('AUTH')
+          }
+          return r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))
+        })
         .then((payload) => {
           if (!mounted) return
           setData(payload)
           setError('')
         })
-        .catch((e) => mounted && setError(e.message))
+        .catch((e) => mounted && e.message !== 'AUTH' && setError(e.message))
     }
     load()
     const timer = window.setInterval(load, 5000)
@@ -118,16 +126,16 @@ export default function App() {
     const confidence = Math.round(Number(data?.ai_confidence ?? 0.96) * 100)
     const plcRunning = data?.plc_state ? /run|auto/i.test(data.plc_state) : true
 
-    let overloadState = 'NORMAL'
+    let overloadState = t.normal
     let overloadTone = 'normal'
     let overloadValueClass = 'good-value'
 
     if (loadPercent >= 100) {
-      overloadState = 'OVERLOAD'
+      overloadState = t.overloadState
       overloadTone = 'critical'
       overloadValueClass = 'critical-value'
     } else if (loadPercent >= 80) {
-      overloadState = 'HIGH'
+      overloadState = t.high
       overloadTone = 'warning'
       overloadValueClass = 'warning-value'
     }
@@ -139,28 +147,35 @@ export default function App() {
       capacity,
       loadPercent,
       overloadState,
+      overloadBadgeClass: overloadTone === 'critical' ? 'overload' : overloadTone === 'warning' ? 'high' : 'normal',
       overloadTone,
       overloadValueClass,
       tearRisk,
       confidence,
       plcRunning,
     }
-  }, [data])
+  }, [data, t])
 
   return (
-    <div className="app-shell">
-      <Sidebar />
+    <div className={`app-shell ${rtl ? 'rtl-ui' : ''}`}>
+      <Sidebar t={t} />
       <main className="dashboard">
         <header className="topbar">
           <div className="title-block">
             <div className="brand-icon"><Icon name="conveyor" size={44} /></div>
-            <h1>Conveyor AI Monitor</h1>
+            <h1>{t.appName}</h1>
             <span className="title-divider" />
             <span className="asset-id">CV-01</span>
           </div>
-          <div className="system-state">
-            <span className="state-dot" />
-            <div><strong>System Online</strong><span>{error ? 'Telemetry reconnecting' : 'All systems nominal'}</span></div>
+          <div className="topbar-actions">
+            <div className="language-switcher">
+              {LANGUAGE_OPTIONS.map((item) => <button type="button" key={item.code} className={lang === item.code ? 'active' : ''} onClick={() => setLang(item.code)}>{item.short}</button>)}
+            </div>
+            <div className="system-state">
+              <span className="state-dot" />
+              <div><strong>{t.systemOnline}</strong><span>{error ? t.reconnecting : t.allNominal}</span></div>
+            </div>
+            <button type="button" className="logout-button" onClick={onLogout}>{t.logout}</button>
           </div>
         </header>
 
@@ -173,49 +188,37 @@ export default function App() {
                 <div className="ore ore-1"/><div className="ore ore-2"/><div className="ore ore-3"/><div className="ore ore-4"/><div className="ore ore-5"/><div className="ore ore-6"/><div className="ore ore-7"/><div className="ore ore-8"/><div className="ore ore-9"/><div className="ore ore-10"/><div className="ore ore-11"/><div className="ore ore-12"/><div className="ore ore-13"/><div className="ore ore-14"/><div className="ore ore-15"/>
               </div>
               <div className="lane-line left"/><div className="lane-line right"/><div className="center-guide" />
-              <div className="offset-guide"><i/><i/><span>Offset<strong>{view.alignment} mm</strong></span></div>
+              <div className="offset-guide"><i/><i/><span>{t.offset}<strong>{view.alignment} mm</strong></span></div>
               <div className="live-badge">
-                <div><span className="state-dot small"/> <strong>Live Vision</strong></div>
+                <div><span className="state-dot small"/> <strong>{t.liveVision}</strong></div>
                 <small>CV-01&nbsp;&nbsp;·&nbsp;&nbsp;1920 × 1080</small>
               </div>
             </div>
           </article>
 
           <article className="telemetry-panel">
-            <MetricRow icon="speed" label="Belt Speed" value={view.speed.toFixed(2)} unit=" m/s">
-              <Progress value={view.speed} min={0} max={4} />
-            </MetricRow>
-            <MetricRow icon="alignment" label="Alignment" value={view.alignment} unit=" mm">
-              <Progress value={view.alignment} min={-50} max={50} marker />
-            </MetricRow>
-            <MetricRow icon="material" label="Material Flow" value={Math.round(view.materialFlow)} unit=" t/h">
-              <Progress value={view.materialFlow} min={0} max={800} />
-            </MetricRow>
-            <MetricRow icon="load" label="Overload" value={`${view.loadPercent}%`} valueClass={view.overloadValueClass} badge={view.overloadState}>
-              <Progress value={Math.min(view.loadPercent, 120)} min={0} max={120} tone={view.overloadTone} />
-            </MetricRow>
-            <MetricRow icon="shield" label="Tear Risk" value={`${view.tearRisk}%`} valueClass="good-value">
-              <Progress value={view.tearRisk} min={0} max={100} />
-            </MetricRow>
-            <MetricRow icon="brain" label="AI Confidence" value={`${view.confidence}%`}>
-              <Progress value={view.confidence} min={0} max={100} />
-            </MetricRow>
+            <MetricRow icon="speed" label={t.beltSpeed} value={view.speed.toFixed(2)} unit=" m/s"><Progress value={view.speed} min={0} max={4} /></MetricRow>
+            <MetricRow icon="alignment" label={t.alignment} value={view.alignment} unit=" mm"><Progress value={view.alignment} min={-50} max={50} marker /></MetricRow>
+            <MetricRow icon="material" label={t.materialFlow} value={Math.round(view.materialFlow)} unit=" t/h"><Progress value={view.materialFlow} min={0} max={800} /></MetricRow>
+            <MetricRow icon="load" label={t.overload} value={`${view.loadPercent}%`} valueClass={view.overloadValueClass} badge={view.overloadState} badgeClass={view.overloadBadgeClass}><Progress value={Math.min(view.loadPercent, 120)} min={0} max={120} tone={view.overloadTone} /></MetricRow>
+            <MetricRow icon="shield" label={t.tearRisk} value={`${view.tearRisk}%`} valueClass="good-value"><Progress value={view.tearRisk} min={0} max={100} /></MetricRow>
+            <MetricRow icon="brain" label={t.aiConfidence} value={`${view.confidence}%`}><Progress value={view.confidence} min={0} max={100} /></MetricRow>
             <div className="metric-row plc-row">
               <div className="metric-icon"><Icon name="plc" size={36}/></div>
-              <div className="metric-copy"><span className="metric-label">PLC Read Only</span><div className="plc-value">{view.plcRunning ? 'Auto (Running)' : 'Connected'}</div></div>
+              <div className="metric-copy"><span className="metric-label">{t.plcReadOnly}</span><div className="plc-value">{view.plcRunning ? t.autoRunning : t.connected}</div></div>
               <Icon name="chevron" size={25}/>
             </div>
           </article>
         </section>
 
         <section className="events-panel">
-          <div className="events-header"><h2>Recent Events</h2><button type="button">View All <Icon name="chevron" size={18}/></button></div>
+          <div className="events-header"><h2>{t.recentEvents}</h2><button type="button">{t.viewAll} <Icon name="chevron" size={18}/></button></div>
           <div className="event-table">
-            <div className="event-row"><time>10:24:11</time><span className="event-dot ok"/><strong>System Online</strong><span className="event-detail">CV-01 operating normally</span></div>
-            <div className="event-row"><time>10:17:03</time><span className="event-dot ok"/><strong>Alignment within range</strong><span className="event-detail">Offset {view.alignment} mm</span></div>
-            <div className="event-row"><time>10:03:45</time><span className={`event-dot ${view.overloadState === 'OVERLOAD' ? 'alarm' : 'ok'}`}/><strong>{view.overloadState === 'OVERLOAD' ? 'Conveyor overload detected' : 'Material flow stable'}</strong><span className="event-detail">{Math.round(view.materialFlow)} t/h · Load {view.loadPercent}% / {view.capacity} t/h</span></div>
-            <div className="event-row"><time>09:41:22</time><span className="event-dot warn"/><strong>Alignment warning (auto-corrected)</strong><span className="event-detail">Offset -28 mm → {view.alignment} mm</span></div>
-            <div className="event-row"><time>08:55:18</time><span className="event-dot ok"/><strong>PLC mode confirmed</strong><span className="event-detail">Auto (Running)</span></div>
+            <div className="event-row"><time>10:24:11</time><span className="event-dot ok"/><strong>{t.systemOnline}</strong><span className="event-detail">{t.operatingNormally}</span></div>
+            <div className="event-row"><time>10:17:03</time><span className="event-dot ok"/><strong>{t.alignmentWithin}</strong><span className="event-detail">{t.offset} {view.alignment} mm</span></div>
+            <div className="event-row"><time>10:03:45</time><span className={`event-dot ${view.overloadState === t.overloadState ? 'alarm' : 'ok'}`}/><strong>{view.overloadState === t.overloadState ? t.overloadDetected : t.materialStable}</strong><span className="event-detail">{Math.round(view.materialFlow)} t/h · {t.load} {view.loadPercent}% / {view.capacity} t/h</span></div>
+            <div className="event-row"><time>09:41:22</time><span className="event-dot warn"/><strong>{t.alignmentWarning}</strong><span className="event-detail">{t.offset} -28 mm → {view.alignment} mm</span></div>
+            <div className="event-row"><time>08:55:18</time><span className="event-dot ok"/><strong>{t.plcConfirmed}</strong><span className="event-detail">{t.autoRunning}</span></div>
           </div>
         </section>
       </main>
