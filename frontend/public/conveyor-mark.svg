@@ -1,15 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <g stroke="#B7C9DF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 45h48"/>
-    <path d="M14 42.5 20.5 22h25L51 42.5"/>
-    <path d="M18 35.5h31"/>
-    <path d="M21.5 29h25"/>
-    <path d="M26 22v-8.5h13V22"/>
-    <path d="M39 13.5h6.5v14"/>
-    <path d="M45.5 18h8"/>
-    <rect x="47" y="15" width="8" height="6" rx="1.5"/>
-    <circle cx="17" cy="48.5" r="4.2"/>
-    <circle cx="47" cy="48.5" r="4.2"/>
-    <path d="M25.5 35.5 30 29m5 6.5 4.5-6.5" opacity=".68"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <g stroke="#EEF5FC" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- conveyor -->
+    <rect x="12" y="78" width="90" height="28" rx="14"/>
+    <circle cx="30" cy="92" r="7"/>
+    <circle cx="58" cy="92" r="7"/>
+    <circle cx="86" cy="92" r="7"/>
+    <!-- material package -->
+    <path d="M34 77V58h25v19"/>
+    <path d="M42 58v-8h10v8"/>
+    <!-- camera -->
+    <rect x="57" y="18" width="21" height="15" rx="3"/>
+    <path d="M78 21h11M89 21v11"/>
+    <path d="M62 35 48 50M70 35l-7 16M76 35l4 16" stroke-dasharray="4 7" opacity=".85"/>
+    <!-- monitor -->
+    <rect x="75" y="46" width="41" height="29" rx="5"/>
+    <path d="M87 61h7l4-8 6 17 5-9h6"/>
+    <path d="M95 75v8M86 83h18"/>
   </g>
+  <circle cx="67.5" cy="25.5" r="2.5" fill="#7DD3FC"/>
 </svg>
