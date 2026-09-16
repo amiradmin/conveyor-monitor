@@ -49,7 +49,49 @@ def _tear_status(probability: float) -> str:
     return "NORMAL"
 
 
-def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> None:
+def _capture_alarm_evidence(alarm: Alarm) -> None:
+    if not settings.EVIDENCE_CAPTURE_ENABLED:
+        return
+
+    payload = {
+        "alarm_id": alarm.id,
+        "conveyor_id": alarm.conveyor.code,
+        "code": alarm.code,
+        "severity": alarm.severity,
+        "message": alarm.message,
+        "created_at": alarm.created_at.isoformat(),
+    }
+    try:
+        response = requests.post(
+            f"{settings.VISION_SERVICE_URL}/evidence",
+            json=payload,
+            timeout=settings.EVIDENCE_CAPTURE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        evidence = response.json()
+        alarm.snapshot_object = str(evidence.get("snapshot_object", ""))
+        alarm.clip_object = str(evidence.get("clip_object", ""))
+        alarm.evidence_status = (
+            Alarm.EvidenceStatus.READY
+            if alarm.snapshot_object or alarm.clip_object
+            else Alarm.EvidenceStatus.FAILED
+        )
+        alarm.evidence_error = "" if alarm.evidence_status == Alarm.EvidenceStatus.READY else "No evidence objects returned."
+    except (requests.RequestException, ValueError, TypeError) as exc:
+        alarm.evidence_status = Alarm.EvidenceStatus.FAILED
+        alarm.evidence_error = str(exc)[:500]
+
+    alarm.save(
+        update_fields=[
+            "snapshot_object",
+            "clip_object",
+            "evidence_status",
+            "evidence_error",
+        ]
+    )
+
+
+def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> Alarm | None:
     cutoff = timezone.now() - timedelta(seconds=settings.ALARM_COOLDOWN_SECONDS)
     exists = Alarm.objects.filter(
         conveyor=conveyor,
@@ -57,13 +99,22 @@ def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> N
         acknowledged=False,
         created_at__gte=cutoff,
     ).exists()
-    if not exists:
-        Alarm.objects.create(
-            conveyor=conveyor,
-            code=code,
-            severity=severity,
-            message=message,
-        )
+    if exists:
+        return None
+
+    alarm = Alarm.objects.create(
+        conveyor=conveyor,
+        code=code,
+        severity=severity,
+        message=message,
+        evidence_status=(
+            Alarm.EvidenceStatus.PENDING
+            if settings.EVIDENCE_CAPTURE_ENABLED
+            else Alarm.EvidenceStatus.NONE
+        ),
+    )
+    _capture_alarm_evidence(alarm)
+    return alarm
 
 
 def _evaluate_alarms(conveyor: Conveyor, sample: TelemetrySample) -> None:
@@ -226,8 +277,6 @@ def conveyor_status(request, code: str = "CV-01"):
 
 @api_view(["GET"])
 def demo_status(request):
-    # Compatibility endpoint retained for the current dashboard. It now returns
-    # persisted/fresh telemetry instead of a hard-coded demo dictionary.
     return _status_response("CV-01")
 
 
