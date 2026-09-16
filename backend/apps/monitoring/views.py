@@ -1,14 +1,16 @@
+import requests
 from django.conf import settings
 from django.utils import timezone
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-import requests
 
 from .models import Conveyor
 from .serializers import ConveyorSerializer
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def health(request):
     return Response({"status": "ok", "service": "backend", "time": timezone.now()})
 
@@ -29,10 +31,13 @@ def demo_status(request):
             "alignment_offset_mm": 12.0,
             "alignment_status": "NORMAL",
             "volume_m3h": 312.0,
+            "mass_flow_tph": 412.0,
+            "nominal_capacity_tph": 600.0,
             "tear_probability": 0.01,
             "tear_status": "NORMAL",
             "ai_confidence": 0.96,
             "plc_write_enabled": False,
+            "plc_state": "AUTO_RUNNING",
         }
     )
 
