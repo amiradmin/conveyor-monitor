@@ -91,6 +91,16 @@ PLC_WRITE_ENABLED = os.getenv("PLC_WRITE_ENABLED", "false").lower() == "true"
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal-token")
 EVIDENCE_CAPTURE_ENABLED = os.getenv("EVIDENCE_CAPTURE_ENABLED", "true").lower() == "true"
 EVIDENCE_CAPTURE_TIMEOUT_SECONDS = float(os.getenv("EVIDENCE_CAPTURE_TIMEOUT_SECONDS", "4"))
+EVIDENCE_URL_TTL_SECONDS = int(os.getenv("EVIDENCE_URL_TTL_SECONDS", "900"))
+
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
+MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", "localhost:9000")
+MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER", "minioadmin")
+MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin123")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "conveyor-events")
+MINIO_REGION = os.getenv("MINIO_REGION", "us-east-1")
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+MINIO_PUBLIC_SECURE = os.getenv("MINIO_PUBLIC_SECURE", "false").lower() == "true"
 
 # Conveyor process/calibration defaults. These can be overridden per site through .env.
 BULK_DENSITY_T_PER_M3 = float(os.getenv("BULK_DENSITY_T_PER_M3", "1.32"))
