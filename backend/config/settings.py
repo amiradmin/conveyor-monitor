@@ -87,3 +87,16 @@ SIMPLE_JWT = {
 
 VISION_SERVICE_URL = os.getenv("VISION_SERVICE_URL", "http://vision-service:8010")
 PLC_GATEWAY_URL = os.getenv("PLC_GATEWAY_URL", "http://plc-gateway:8020")
+INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal-token")
+
+# Conveyor process/calibration defaults. These can be overridden per site through .env.
+BULK_DENSITY_T_PER_M3 = float(os.getenv("BULK_DENSITY_T_PER_M3", "1.32"))
+NOMINAL_CAPACITY_TPH = float(os.getenv("NOMINAL_CAPACITY_TPH", "600"))
+TELEMETRY_STALE_SECONDS = int(os.getenv("TELEMETRY_STALE_SECONDS", "6"))
+ALARM_COOLDOWN_SECONDS = int(os.getenv("ALARM_COOLDOWN_SECONDS", "60"))
+ALIGNMENT_WARNING_MM = float(os.getenv("ALIGNMENT_WARNING_MM", "25"))
+ALIGNMENT_CRITICAL_MM = float(os.getenv("ALIGNMENT_CRITICAL_MM", "40"))
+TEAR_WARNING_PROBABILITY = float(os.getenv("TEAR_WARNING_PROBABILITY", "0.35"))
+TEAR_CRITICAL_PROBABILITY = float(os.getenv("TEAR_CRITICAL_PROBABILITY", "0.65"))
+OVERLOAD_WARNING_PERCENT = float(os.getenv("OVERLOAD_WARNING_PERCENT", "80"))
+OVERLOAD_CRITICAL_PERCENT = float(os.getenv("OVERLOAD_CRITICAL_PERCENT", "100"))
