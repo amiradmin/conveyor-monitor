@@ -192,20 +192,7 @@ def _status_payload(conveyor: Conveyor, sample: TelemetrySample, source: str) ->
     }
 
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def health(request):
-    return Response({"status": "ok", "service": "backend", "time": timezone.now()})
-
-
-@api_view(["GET"])
-def conveyors(request):
-    items = Conveyor.objects.prefetch_related("cameras").all().order_by("code")
-    return Response(ConveyorSerializer(items, many=True).data)
-
-
-@api_view(["GET"])
-def conveyor_status(request, code: str = "CV-01"):
+def _status_response(code: str) -> Response:
     conveyor, _ = Conveyor.objects.get_or_create(code=code, defaults={"name": f"Conveyor {code}"})
     sample, source = _get_fresh_sample(conveyor)
     if not sample:
@@ -221,10 +208,27 @@ def conveyor_status(request, code: str = "CV-01"):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
+def health(request):
+    return Response({"status": "ok", "service": "backend", "time": timezone.now()})
+
+
+@api_view(["GET"])
+def conveyors(request):
+    items = Conveyor.objects.prefetch_related("cameras").all().order_by("code")
+    return Response(ConveyorSerializer(items, many=True).data)
+
+
+@api_view(["GET"])
+def conveyor_status(request, code: str = "CV-01"):
+    return _status_response(code)
+
+
+@api_view(["GET"])
 def demo_status(request):
     # Compatibility endpoint retained for the current dashboard. It now returns
     # persisted/fresh telemetry instead of a hard-coded demo dictionary.
-    return conveyor_status(request, "CV-01")
+    return _status_response("CV-01")
 
 
 @api_view(["POST"])
@@ -243,9 +247,13 @@ def ingest_telemetry(request):
 @api_view(["GET"])
 def events(request):
     code = request.query_params.get("conveyor", "CV-01")
-    limit = min(max(int(request.query_params.get("limit", "20")), 1), 100)
-    queryset = Alarm.objects.select_related("conveyor").filter(conveyor__code=code).order_by("-created_at")
+    try:
+        requested_limit = int(request.query_params.get("limit", "20"))
+    except (TypeError, ValueError):
+        requested_limit = 20
+    limit = min(max(requested_limit, 1), 100)
 
+    queryset = Alarm.objects.select_related("conveyor").filter(conveyor__code=code).order_by("-created_at")
     acknowledged = request.query_params.get("acknowledged")
     if acknowledged in {"true", "false"}:
         queryset = queryset.filter(acknowledged=acknowledged == "true")
