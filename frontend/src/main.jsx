@@ -6,12 +6,14 @@ import { clearTokens, hasSession } from './auth'
 import { RTL_LANGUAGES } from './i18n'
 import { mountLiveVideo } from './liveVideo'
 import { mountLiveAlerts } from './liveAlerts'
+import { mountSidebarEnhancer } from './sidebarEnhancer'
 import './styles.css'
 import './auth.css'
 import './liveVideo.css'
 import './brand.css'
 import './events.css'
 import './liveAlerts.css'
+import './sidebar.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
@@ -31,7 +33,9 @@ function Root() {
     if (!authenticated) return undefined
     const unmountVideo = mountLiveVideo()
     const unmountAlerts = mountLiveAlerts()
+    const unmountSidebar = mountSidebarEnhancer()
     return () => {
+      unmountSidebar?.()
       unmountAlerts?.()
       unmountVideo?.()
     }
