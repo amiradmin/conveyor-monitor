@@ -22,4 +22,12 @@ class Migration(migrations.Migration):
             name="resolved_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
+        migrations.AddConstraint(
+            model_name="alarm",
+            constraint=models.UniqueConstraint(
+                fields=("conveyor", "condition_key"),
+                condition=models.Q(active=True) & ~models.Q(condition_key=""),
+                name="uniq_active_alarm_condition",
+            ),
+        ),
     ]
