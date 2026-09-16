@@ -54,10 +54,21 @@ services:
     build:
       context: ./services/vision-service
       network: host
+    env_file:
+      - .env
+    environment:
+      VISION_VIDEO_SOURCE: ${VISION_VIDEO_SOURCE:-/data/conveyor_1.mp4}
+      BACKEND_INGEST_URL: ${BACKEND_INGEST_URL:-http://backend:8000/api/telemetry/ingest/}
+      VISION_LOOP: ${VISION_LOOP:-true}
+      VISION_PUBLISH_HZ: ${VISION_PUBLISH_HZ:-2}
+      VISION_PUSH_INTERVAL_SECONDS: ${VISION_PUSH_INTERVAL_SECONDS:-2}
     ports:
       - "8010:8010"
     volumes:
       - ./services/vision-service:/app
+      - ./frontend/public:/data:ro
+    depends_on:
+      - backend
 
   plc-gateway:
     build:
