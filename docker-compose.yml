@@ -62,6 +62,14 @@ services:
       VISION_LOOP: ${VISION_LOOP:-true}
       VISION_PUBLISH_HZ: ${VISION_PUBLISH_HZ:-2}
       VISION_PUSH_INTERVAL_SECONDS: ${VISION_PUSH_INTERVAL_SECONDS:-2}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_BUCKET: ${MINIO_BUCKET:-conveyor-events}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      EVIDENCE_SECONDS: ${EVIDENCE_SECONDS:-6}
+      EVIDENCE_FPS: ${EVIDENCE_FPS:-6}
+      EVIDENCE_WIDTH: ${EVIDENCE_WIDTH:-960}
+      EVIDENCE_JPEG_QUALITY: ${EVIDENCE_JPEG_QUALITY:-82}
     ports:
       - "8010:8010"
     volumes:
@@ -69,6 +77,7 @@ services:
       - ./frontend/public:/data:ro
     depends_on:
       - backend
+      - minio
 
   plc-gateway:
     build:
