@@ -83,48 +83,106 @@ function Sidebar({ t }) {
   )
 }
 
+function eventTone(severity) {
+  if (severity === 'CRITICAL') return 'alarm'
+  if (severity === 'WARNING') return 'warn'
+  return 'ok'
+}
+
+function eventTitle(event, t) {
+  const map = {
+    ALIGNMENT_WARNING: t.alarmAlignmentWarning,
+    ALIGNMENT_CRITICAL: t.alarmAlignmentCritical,
+    TEAR_WARNING: t.alarmTearWarning,
+    TEAR_CRITICAL: t.alarmTearCritical,
+    OVERLOAD_WARNING: t.alarmOverloadWarning,
+    OVERLOAD_CRITICAL: t.alarmOverloadCritical,
+  }
+  return map[event.code] || String(event.code || 'EVENT').replaceAll('_', ' ')
+}
+
+function eventTime(value, lang) {
+  if (!value) return '--:--:--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--:--:--'
+  const locale = lang === 'fa' ? 'fa-IR' : lang === 'ar' ? 'ar' : 'en-GB'
+  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
+}
+
 export default function App({ lang, setLang, onLogout }) {
   const t = getTranslation(lang)
   const rtl = RTL_LANGUAGES.has(lang)
   const [data, setData] = useState(null)
+  const [events, setEvents] = useState([])
   const [error, setError] = useState('')
+  const [acknowledgingId, setAcknowledgingId] = useState(null)
 
   useEffect(() => {
     let mounted = true
-    const load = () => {
-      authFetch(`${API}/demo/status/`)
-        .then((r) => {
-          if (r.status === 401) {
-            onLogout()
-            throw new Error('AUTH')
-          }
-          return r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))
-        })
-        .then((payload) => {
-          if (!mounted) return
-          setData(payload)
-          setError('')
-        })
-        .catch((e) => mounted && e.message !== 'AUTH' && setError(e.message))
+
+    const parseResponse = async (response) => {
+      if (response.status === 401) {
+        onLogout()
+        throw new Error('AUTH')
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.json()
     }
+
+    const load = async () => {
+      try {
+        const [statusResponse, eventsResponse] = await Promise.all([
+          authFetch(`${API}/conveyors/CV-01/status/`),
+          authFetch(`${API}/events/?conveyor=CV-01&limit=5`),
+        ])
+        const [statusPayload, eventPayload] = await Promise.all([
+          parseResponse(statusResponse),
+          parseResponse(eventsResponse),
+        ])
+        if (!mounted) return
+        setData(statusPayload)
+        setEvents(Array.isArray(eventPayload) ? eventPayload : [])
+        setError('')
+      } catch (e) {
+        if (mounted && e.message !== 'AUTH') setError(e.message)
+      }
+    }
+
     load()
     const timer = window.setInterval(load, 5000)
     return () => {
       mounted = false
       window.clearInterval(timer)
     }
-  }, [])
+  }, [onLogout])
+
+  async function acknowledgeEvent(eventId) {
+    setAcknowledgingId(eventId)
+    try {
+      const response = await authFetch(`${API}/events/${eventId}/acknowledge/`, { method: 'POST' })
+      if (response.status === 401) {
+        onLogout()
+        return
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const updated = await response.json()
+      setEvents((current) => current.map((item) => item.id === updated.id ? updated : item))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setAcknowledgingId(null)
+    }
+  }
 
   const view = useMemo(() => {
-    const speed = Number(data?.speed_mps ?? 2.36)
-    const alignment = Number(data?.alignment_offset_mm ?? -12)
-    const materialFlow = Number(data?.mass_flow_tph ?? data?.material_flow_tph ?? 412)
+    const speed = Number(data?.speed_mps ?? 0)
+    const alignment = Number(data?.alignment_offset_mm ?? 0)
+    const materialFlow = Number(data?.mass_flow_tph ?? data?.material_flow_tph ?? 0)
     const capacity = Number(data?.nominal_capacity_tph ?? data?.design_capacity_tph ?? 600)
-    const rawLoadPercent = capacity > 0 ? (materialFlow / capacity) * 100 : 0
-    const loadPercent = Math.max(0, Math.round(rawLoadPercent))
-    const tearRisk = Math.round(Number(data?.tear_probability ?? 0.03) * 100)
-    const confidence = Math.round(Number(data?.ai_confidence ?? 0.96) * 100)
-    const plcRunning = data?.plc_state ? /run|auto/i.test(data.plc_state) : true
+    const loadPercent = Math.max(0, Math.round(Number(data?.load_percent ?? (capacity > 0 ? (materialFlow / capacity) * 100 : 0))))
+    const tearRisk = Math.round(Number(data?.tear_probability ?? 0) * 100)
+    const confidence = Math.round(Number(data?.ai_confidence ?? 0) * 100)
+    const plcRunning = data?.plc_state ? /run|auto/i.test(data.plc_state) : false
 
     let overloadState = t.normal
     let overloadTone = 'normal'
@@ -191,7 +249,7 @@ export default function App({ lang, setLang, onLogout }) {
               <div className="offset-guide"><i/><i/><span>{t.offset}<strong>{view.alignment} mm</strong></span></div>
               <div className="live-badge">
                 <div><span className="state-dot small"/> <strong>{t.liveVision}</strong></div>
-                <small>CV-01&nbsp;&nbsp;·&nbsp;&nbsp;1920 × 1080</small>
+                <small>CV-01&nbsp;&nbsp;·&nbsp;&nbsp;1280 × 720</small>
               </div>
             </div>
           </article>
@@ -213,12 +271,22 @@ export default function App({ lang, setLang, onLogout }) {
 
         <section className="events-panel">
           <div className="events-header"><h2>{t.recentEvents}</h2><button type="button">{t.viewAll} <Icon name="chevron" size={18}/></button></div>
-          <div className="event-table">
-            <div className="event-row"><time>10:24:11</time><span className="event-dot ok"/><strong>{t.systemOnline}</strong><span className="event-detail">{t.operatingNormally}</span></div>
-            <div className="event-row"><time>10:17:03</time><span className="event-dot ok"/><strong>{t.alignmentWithin}</strong><span className="event-detail">{t.offset} {view.alignment} mm</span></div>
-            <div className="event-row"><time>10:03:45</time><span className={`event-dot ${view.overloadState === t.overloadState ? 'alarm' : 'ok'}`}/><strong>{view.overloadState === t.overloadState ? t.overloadDetected : t.materialStable}</strong><span className="event-detail">{Math.round(view.materialFlow)} t/h · {t.load} {view.loadPercent}% / {view.capacity} t/h</span></div>
-            <div className="event-row"><time>09:41:22</time><span className="event-dot warn"/><strong>{t.alignmentWarning}</strong><span className="event-detail">{t.offset} -28 mm → {view.alignment} mm</span></div>
-            <div className="event-row"><time>08:55:18</time><span className="event-dot ok"/><strong>{t.plcConfirmed}</strong><span className="event-detail">{t.autoRunning}</span></div>
+          <div className="event-table live-events-table">
+            {events.length === 0 ? (
+              <div className="event-empty"><span className="event-dot ok"/>{t.noRecentEvents}</div>
+            ) : events.map((event) => (
+              <div className={`event-row live-event-row ${event.acknowledged ? 'is-acknowledged' : ''}`} key={event.id}>
+                <time>{eventTime(event.created_at, lang)}</time>
+                <span className={`event-dot ${eventTone(event.severity)}`}/>
+                <strong>{eventTitle(event, t)}</strong>
+                <span className="event-detail">{event.message}</span>
+                {event.acknowledged ? (
+                  <span className="event-acknowledged">{t.acknowledged}</span>
+                ) : (
+                  <button className="event-ack-button" type="button" disabled={acknowledgingId === event.id} onClick={() => acknowledgeEvent(event.id)}>{t.acknowledge}</button>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       </main>
