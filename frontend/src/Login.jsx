@@ -36,38 +36,73 @@ export default function Login({ lang, setLang, onAuthenticated }) {
   }
 
   return (
-    <main className="login-shell" dir={rtl ? 'rtl' : 'ltr'}>
+    <main className="login-shell login-cinematic" dir={rtl ? 'rtl' : 'ltr'}>
+      <video className="login-bg-video" autoPlay muted loop playsInline preload="metadata">
+        <source src="/conveyor_1.mp4" type="video/mp4" />
+      </video>
+      <div className="login-bg-overlay" />
       <div className="login-grid-bg" />
-      <section className="login-brand-panel">
-        <div className="login-brand-lockup">
-          <div className="login-mark"><ConveyorMark /></div>
-          <div><span>{t.monitoring}</span><h1>{t.appName}</h1></div>
-        </div>
-        <div className="login-visual">
-          <div className="login-belt"><i/><i/><i/><i/><i/></div>
-          <div className="scan-line" />
-          <div className="vision-frame"><span>CV-01</span><b>AI VISION</b></div>
-        </div>
-        <div className="security-note"><span className="state-dot small"/><span>{t.secureJwt}</span></div>
-      </section>
 
-      <section className="login-form-panel">
+      <header className="login-topbar">
+        <div className="login-brand-lockup compact">
+          <div className="login-mark"><ConveyorMark /></div>
+          <div>
+            <span>{t.monitoring}</span>
+            <h1>{t.appName}</h1>
+          </div>
+        </div>
         <div className="login-language">
           {LANGUAGE_OPTIONS.map((item) => (
             <button key={item.code} className={lang === item.code ? 'active' : ''} onClick={() => setLang(item.code)} type="button">{item.short}</button>
           ))}
         </div>
+      </header>
+
+      <section className="login-hero-copy">
+        <div className="login-eyebrow"><span className="state-dot small" /> CV-01 · LIVE MONITORING</div>
+        <h2>Industrial AI<br/>for Conveyor Safety</h2>
+        <p>{t.monitoring}</p>
+        <div className="login-system-strip">
+          <span><i className="ok-dot" /> AI Vision</span>
+          <span><i className="ok-dot" /> PLC Connected</span>
+          <span><i className="ok-dot" /> JWT Secure</span>
+        </div>
+      </section>
+
+      <section className="login-form-panel">
         <form className="login-card" onSubmit={submit}>
-          <div className="login-card-icon"><ConveyorMark /></div>
-          <h2>{t.signInTitle}</h2>
+          <div className="login-card-heading">
+            <div className="login-card-icon"><ConveyorMark /></div>
+            <div>
+              <span className="login-card-kicker">CV-01</span>
+              <h2>{t.signInTitle}</h2>
+            </div>
+          </div>
           <p>{t.signInSubtitle}</p>
-          <label><span>{t.username}</span><input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t.usernamePlaceholder} required autoFocus /></label>
-          <label><span>{t.password}</span><input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.passwordPlaceholder} required /></label>
+
+          <label>
+            <span>{t.username}</span>
+            <input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t.usernamePlaceholder} required autoFocus />
+          </label>
+          <label>
+            <span>{t.password}</span>
+            <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.passwordPlaceholder} required />
+          </label>
+
           {error && <div className="login-error">{error}</div>}
           <button className="login-submit" type="submit" disabled={loading}>{loading ? t.signingIn : t.signIn}</button>
-          <div className="login-jwt"><span className="lock-dot">●</span>{t.secureJwt}</div>
+
+          <div className="login-jwt">
+            <span className="lock-dot">●</span>
+            <span>{t.secureJwt}</span>
+          </div>
         </form>
       </section>
+
+      <footer className="login-footer">
+        <span>Conveyor AI Monitor</span>
+        <span>Industrial Vision · CV-01</span>
+      </footer>
     </main>
   )
 }
