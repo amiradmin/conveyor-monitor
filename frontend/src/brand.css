@@ -1,0 +1,133 @@
+/* Shared Conveyor AI Monitor brand identity */
+:root{
+  --brand-header:#091827;
+  --brand-header-deep:#071522;
+  --brand-mark:#b7c9df;
+  --brand-title:#f4f7fb;
+}
+
+/* Replace the older inline conveyor glyph with the final industrial line mark. */
+.brand-icon,
+.sidebar-brand,
+.login-mark,
+.login-card-icon{
+  position:relative;
+}
+
+.brand-icon > svg,
+.sidebar-brand > svg,
+.login-mark > svg,
+.login-card-icon > svg{
+  opacity:0;
+}
+
+.brand-icon::before,
+.sidebar-brand::before,
+.login-mark::before,
+.login-card-icon::before{
+  content:"";
+  position:absolute;
+  inset:50% auto auto 50%;
+  width:100%;
+  height:100%;
+  transform:translate(-50%,-50%);
+  background:url('/conveyor-mark.svg') center/contain no-repeat;
+  pointer-events:none;
+}
+
+/* Dashboard header: compact, clean industrial lockup like the chosen reference. */
+.topbar{
+  background:linear-gradient(180deg,rgba(10,27,43,.98),rgba(7,21,34,.98));
+  border-bottom:1px solid #21384d;
+}
+
+.title-block{
+  gap:15px;
+}
+
+.brand-icon{
+  width:44px;
+  height:44px;
+  flex:0 0 44px;
+}
+
+.brand-icon::before{
+  width:40px;
+  height:40px;
+}
+
+.title-block h1{
+  color:var(--brand-title);
+  font-size:28px;
+  font-weight:750;
+  letter-spacing:-.025em;
+  text-shadow:0 1px 0 rgba(255,255,255,.03);
+}
+
+.title-divider{
+  background:#30465c;
+}
+
+.asset-id{
+  color:#aabdd1;
+}
+
+/* Sidebar uses the same mark instead of a second logo style. */
+.sidebar-brand{
+  color:var(--brand-mark);
+  background:linear-gradient(180deg,#0d1e30,#0a1928);
+}
+
+.sidebar-brand::before{
+  width:37px;
+  height:37px;
+}
+
+/* Login uses the exact same identity. */
+.login-topbar{
+  border-bottom-color:rgba(44,68,90,.56);
+  background:linear-gradient(180deg,rgba(7,20,32,.78),rgba(7,20,32,.34));
+}
+
+.login-brand-lockup.compact{
+  gap:14px;
+}
+
+.login-brand-lockup.compact .login-mark{
+  width:50px;
+  height:50px;
+  flex:0 0 50px;
+}
+
+.login-brand-lockup.compact .login-mark::before{
+  width:46px;
+  height:46px;
+}
+
+.login-brand-lockup.compact h1{
+  color:var(--brand-title);
+  font-weight:750;
+  letter-spacing:-.025em;
+}
+
+.login-card-icon{
+  width:44px;
+  height:44px;
+  flex:0 0 44px;
+}
+
+.login-card-icon::before{
+  width:42px;
+  height:42px;
+}
+
+@media(max-width:980px){
+  .title-block h1{font-size:24px}
+  .brand-icon{width:40px;height:40px;flex-basis:40px}
+  .brand-icon::before{width:36px;height:36px}
+}
+
+@media(max-width:700px){
+  .login-brand-lockup.compact .login-mark{width:43px;height:43px;flex-basis:43px}
+  .login-brand-lockup.compact .login-mark::before{width:40px;height:40px}
+}
