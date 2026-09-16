@@ -1,0 +1,90 @@
+/* Header language dropdown */
+.header-language-select{
+  display:flex;
+  align-items:center;
+}
+
+.topbar-language-field{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+}
+
+.topbar-language-label{
+  color:#879bb0;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+.topbar-language-control{
+  position:relative;
+  display:flex;
+  align-items:center;
+  min-width:148px;
+  height:38px;
+  border:1px solid #29445e;
+  border-radius:8px;
+  background:linear-gradient(180deg,#10263a,#0c1e30);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+
+.topbar-language-control:hover,
+.topbar-language-control:focus-within{
+  border-color:#3f78a8;
+  background:linear-gradient(180deg,#132c43,#0e2337);
+  box-shadow:0 0 0 3px rgba(47,152,255,.06);
+}
+
+.topbar-language-control select{
+  width:100%;
+  height:100%;
+  appearance:none;
+  -webkit-appearance:none;
+  border:0;
+  outline:0;
+  padding:0 34px 0 12px;
+  background:transparent;
+  color:#dce9f5;
+  font:inherit;
+  font-size:11px;
+  font-weight:750;
+  cursor:pointer;
+}
+
+.topbar-language-control select option{
+  background:#0d2032;
+  color:#e6f0fa;
+}
+
+.topbar-language-control>svg{
+  position:absolute;
+  right:10px;
+  color:#7892aa;
+  pointer-events:none;
+  transform:rotate(90deg);
+}
+
+.rtl-ui .topbar-language-control select{
+  padding:0 12px 0 34px;
+  text-align:right;
+}
+
+.rtl-ui .topbar-language-control>svg{
+  right:auto;
+  left:10px;
+}
+
+@media(max-width:980px){
+  .topbar-language-label{display:none}
+  .topbar-language-control{min-width:126px;height:36px}
+}
+
+@media(max-width:700px){
+  .topbar-language-control{min-width:92px;height:34px}
+  .topbar-language-control select{font-size:10px;padding-left:9px}
+}
