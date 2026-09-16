@@ -8,6 +8,7 @@ urlpatterns = [
     path("demo/status/", views.demo_status),
     path("telemetry/ingest/", views.ingest_telemetry),
     path("events/", views.events),
+    path("events/<int:alarm_id>/evidence/", views.alarm_evidence),
     path("events/<int:alarm_id>/acknowledge/", views.acknowledge_alarm),
     path("events/<int:alarm_id>/capture-evidence/", views.recapture_alarm_evidence),
     path("control/stop/", views.controlled_stop),
