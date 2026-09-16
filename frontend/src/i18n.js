@@ -26,6 +26,10 @@ export const translations = {
     alarmAlignmentWarning: 'Alignment warning', alarmAlignmentCritical: 'Alignment critical',
     alarmTearWarning: 'Tear risk warning', alarmTearCritical: 'Tear risk critical',
     alarmOverloadWarning: 'Overload warning', alarmOverloadCritical: 'Overload critical',
+    snapshot: 'Snapshot', clip: 'Clip', evidence: 'Alarm Evidence', close: 'Close', loadingEvidence: 'Loading evidence…',
+    evidencePending: 'Evidence is being prepared', evidenceUnavailable: 'Evidence is not available',
+    legacyClip: 'This older AVI clip may not play in the browser. Open it in a new tab to download or view externally.',
+    openClip: 'Open clip', liveAlarm: 'LIVE ALARM',
   },
   fa: {
     appName: 'پایش هوشمند نوار نقاله', asset: 'CV-01',
@@ -46,6 +50,10 @@ export const translations = {
     alarmAlignmentWarning: 'هشدار هم‌راستایی', alarmAlignmentCritical: 'بحرانی: هم‌راستایی',
     alarmTearWarning: 'هشدار ریسک پارگی', alarmTearCritical: 'بحرانی: ریسک پارگی',
     alarmOverloadWarning: 'هشدار اضافه‌بار', alarmOverloadCritical: 'بحرانی: اضافه‌بار',
+    snapshot: 'تصویر', clip: 'کلیپ', evidence: 'مدرک هشدار', close: 'بستن', loadingEvidence: 'در حال دریافت مدرک…',
+    evidencePending: 'مدرک در حال آماده‌سازی است', evidenceUnavailable: 'مدرک در دسترس نیست',
+    legacyClip: 'این کلیپ قدیمی AVI ممکن است داخل مرورگر پخش نشود. آن را در تب جدید باز کنید.',
+    openClip: 'باز کردن کلیپ', liveAlarm: 'هشدار زنده',
   },
   ar: {
     appName: 'مراقبة الناقل بالذكاء الاصطناعي', asset: 'CV-01',
@@ -66,6 +74,10 @@ export const translations = {
     alarmAlignmentWarning: 'تحذير المحاذاة', alarmAlignmentCritical: 'حرج: المحاذاة',
     alarmTearWarning: 'تحذير خطر التمزق', alarmTearCritical: 'حرج: خطر التمزق',
     alarmOverloadWarning: 'تحذير الحمل الزائد', alarmOverloadCritical: 'حرج: الحمل الزائد',
+    snapshot: 'صورة', clip: 'مقطع', evidence: 'دليل الإنذار', close: 'إغلاق', loadingEvidence: 'جارٍ تحميل الدليل…',
+    evidencePending: 'يتم تجهيز الدليل', evidenceUnavailable: 'الدليل غير متاح',
+    legacyClip: 'قد لا يعمل مقطع AVI القديم داخل المتصفح. افتحه في علامة تبويب جديدة.',
+    openClip: 'فتح المقطع', liveAlarm: 'إنذار مباشر',
   },
 }
 
