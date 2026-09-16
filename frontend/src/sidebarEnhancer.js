@@ -100,18 +100,22 @@ export function mountSidebarEnhancer() {
 
   sidebar.classList.add('sidebar-enhanced')
 
-  const brand = sidebar.querySelector('.sidebar-brand')
-  if (brand && !brand.querySelector('.sidebar-brand-caption')) {
-    const caption = document.createElement('span')
-    caption.className = 'sidebar-brand-caption'
-    caption.textContent = 'AI'
-    brand.appendChild(caption)
-  }
-
   const footer = document.createElement('div')
   footer.className = 'sidebar-status'
   footer.innerHTML = '<span class="sidebar-status-dot"></span><strong>CV-01</strong><small>ONLINE</small>'
-  sidebar.appendChild(footer)
+
+  const ensureChrome = () => {
+    const brand = sidebar.querySelector('.sidebar-brand')
+    if (brand && !brand.querySelector('.sidebar-brand-caption')) {
+      const caption = document.createElement('span')
+      caption.className = 'sidebar-brand-caption'
+      caption.textContent = 'AI'
+      brand.appendChild(caption)
+    }
+    if (!sidebar.contains(footer)) sidebar.appendChild(footer)
+  }
+
+  ensureChrome()
 
   const navItems = [...sidebar.querySelectorAll('.nav-item')]
   const cleanup = []
@@ -176,7 +180,13 @@ export function mountSidebarEnhancer() {
   window.addEventListener('scroll', onScroll, { passive: true })
   cleanup.push(() => window.removeEventListener('scroll', onScroll))
 
-  const mutationObserver = new MutationObserver(() => updateEventBadge(sidebar))
+  const mutationObserver = new MutationObserver(() => {
+    ensureChrome()
+    updateEventBadge(sidebar)
+    if (settingsOpen && !document.querySelector('.sidebar-settings-drawer')) {
+      buildSettingsDrawer(sidebar, closeSettings)
+    }
+  })
   mutationObserver.observe(document.body, {
     childList: true,
     subtree: true,
