@@ -15,3 +15,20 @@ class VisionResult(FrameMetrics):
     alignment_status: str
     tear_status: str
     stop_recommended: bool
+
+
+class EvidenceRequest(BaseModel):
+    alarm_id: int
+    conveyor_id: str = "CV-01"
+    code: str
+    severity: str
+    message: str = ""
+    created_at: str = ""
+
+
+class EvidenceResult(BaseModel):
+    bucket: str
+    snapshot_object: str
+    clip_object: str
+    metadata_object: str
+    frame_count: int
