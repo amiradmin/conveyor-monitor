@@ -41,9 +41,23 @@ class Alarm(models.Model):
         WARNING = "WARNING", "Warning"
         CRITICAL = "CRITICAL", "Critical"
 
+    class EvidenceStatus(models.TextChoices):
+        NONE = "NONE", "None"
+        PENDING = "PENDING", "Pending"
+        READY = "READY", "Ready"
+        FAILED = "FAILED", "Failed"
+
     conveyor = models.ForeignKey(Conveyor, on_delete=models.CASCADE, related_name="alarms")
     code = models.CharField(max_length=100)
     severity = models.CharField(max_length=16, choices=Severity.choices)
     message = models.CharField(max_length=500)
     acknowledged = models.BooleanField(default=False)
+    evidence_status = models.CharField(
+        max_length=16,
+        choices=EvidenceStatus.choices,
+        default=EvidenceStatus.NONE,
+    )
+    snapshot_object = models.CharField(max_length=500, blank=True)
+    clip_object = models.CharField(max_length=500, blank=True)
+    evidence_error = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
