@@ -59,6 +59,7 @@ export default function Login({ lang, setLang, onAuthenticated }) {
       </header>
 
       <section className="login-hero-copy">
+        <img className="login-hero-logo" src="/conveyor-logo.svg" alt="Conveyor AI Monitor" />
         <div className="login-eyebrow"><span className="state-dot small" /> CV-01 · LIVE MONITORING</div>
         <h2>Industrial AI<br/>for Conveyor Safety</h2>
         <p>{t.monitoring}</p>
