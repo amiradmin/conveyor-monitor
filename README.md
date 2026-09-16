@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="frontend/public/conveyor-logo.svg" alt="Conveyor AI Monitor" width="620" />
+</p>
+
 # Conveyor Monitor
 
 AI-powered industrial conveyor belt monitoring platform for real-time **alignment**, **speed**, **tear/damage risk**, and **material flow** monitoring using computer vision, with PLC integration for alarms and controlled conveyor shutdown requests.
