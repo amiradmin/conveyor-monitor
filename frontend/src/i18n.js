@@ -22,6 +22,10 @@ export const translations = {
     username: 'Username', password: 'Password', usernamePlaceholder: 'Enter your username', passwordPlaceholder: 'Enter your password',
     signingIn: 'Signing in…', invalidCredentials: 'Invalid username or password.', loginUnavailable: 'Authentication service is unavailable.',
     secureJwt: 'JWT secured session', monitoring: 'Industrial Vision · Conveyor Monitoring',
+    noRecentEvents: 'No active alarms or recent events.', acknowledge: 'ACK', acknowledged: 'Acknowledged',
+    alarmAlignmentWarning: 'Alignment warning', alarmAlignmentCritical: 'Alignment critical',
+    alarmTearWarning: 'Tear risk warning', alarmTearCritical: 'Tear risk critical',
+    alarmOverloadWarning: 'Overload warning', alarmOverloadCritical: 'Overload critical',
   },
   fa: {
     appName: 'پایش هوشمند نوار نقاله', asset: 'CV-01',
@@ -38,6 +42,10 @@ export const translations = {
     username: 'نام کاربری', password: 'رمز عبور', usernamePlaceholder: 'نام کاربری را وارد کنید', passwordPlaceholder: 'رمز عبور را وارد کنید',
     signingIn: 'در حال ورود…', invalidCredentials: 'نام کاربری یا رمز عبور نادرست است.', loginUnavailable: 'سرویس احراز هویت در دسترس نیست.',
     secureJwt: 'نشست امن با JWT', monitoring: 'بینایی صنعتی · پایش نوار نقاله',
+    noRecentEvents: 'هشدار فعال یا رویداد جدیدی وجود ندارد.', acknowledge: 'تأیید', acknowledged: 'تأیید شده',
+    alarmAlignmentWarning: 'هشدار هم‌راستایی', alarmAlignmentCritical: 'بحرانی: هم‌راستایی',
+    alarmTearWarning: 'هشدار ریسک پارگی', alarmTearCritical: 'بحرانی: ریسک پارگی',
+    alarmOverloadWarning: 'هشدار اضافه‌بار', alarmOverloadCritical: 'بحرانی: اضافه‌بار',
   },
   ar: {
     appName: 'مراقبة الناقل بالذكاء الاصطناعي', asset: 'CV-01',
@@ -54,6 +62,10 @@ export const translations = {
     username: 'اسم المستخدم', password: 'كلمة المرور', usernamePlaceholder: 'أدخل اسم المستخدم', passwordPlaceholder: 'أدخل كلمة المرور',
     signingIn: 'جارٍ تسجيل الدخول…', invalidCredentials: 'اسم المستخدم أو كلمة المرور غير صحيحة.', loginUnavailable: 'خدمة المصادقة غير متاحة.',
     secureJwt: 'جلسة آمنة باستخدام JWT', monitoring: 'الرؤية الصناعية · مراقبة الناقل',
+    noRecentEvents: 'لا توجد إنذارات نشطة أو أحداث حديثة.', acknowledge: 'تأكيد', acknowledged: 'تم التأكيد',
+    alarmAlignmentWarning: 'تحذير المحاذاة', alarmAlignmentCritical: 'حرج: المحاذاة',
+    alarmTearWarning: 'تحذير خطر التمزق', alarmTearCritical: 'حرج: خطر التمزق',
+    alarmOverloadWarning: 'تحذير الحمل الزائد', alarmOverloadCritical: 'حرج: الحمل الزائد',
   },
 }
 
