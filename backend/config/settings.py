@@ -89,6 +89,8 @@ VISION_SERVICE_URL = os.getenv("VISION_SERVICE_URL", "http://vision-service:8010
 PLC_GATEWAY_URL = os.getenv("PLC_GATEWAY_URL", "http://plc-gateway:8020")
 PLC_WRITE_ENABLED = os.getenv("PLC_WRITE_ENABLED", "false").lower() == "true"
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal-token")
+EVIDENCE_CAPTURE_ENABLED = os.getenv("EVIDENCE_CAPTURE_ENABLED", "true").lower() == "true"
+EVIDENCE_CAPTURE_TIMEOUT_SECONDS = float(os.getenv("EVIDENCE_CAPTURE_TIMEOUT_SECONDS", "4"))
 
 # Conveyor process/calibration defaults. These can be overridden per site through .env.
 BULK_DENSITY_T_PER_M3 = float(os.getenv("BULK_DENSITY_T_PER_M3", "1.32"))
