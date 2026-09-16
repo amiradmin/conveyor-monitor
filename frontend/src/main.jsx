@@ -4,8 +4,10 @@ import App from './App'
 import Login from './Login'
 import { clearTokens, hasSession } from './auth'
 import { RTL_LANGUAGES } from './i18n'
+import { mountLiveVideo } from './liveVideo'
 import './styles.css'
 import './auth.css'
+import './liveVideo.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
@@ -20,6 +22,11 @@ function Root() {
     document.documentElement.lang = lang
     document.documentElement.dir = RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr'
   }, [lang])
+
+  useEffect(() => {
+    if (!authenticated) return undefined
+    return mountLiveVideo()
+  }, [authenticated])
 
   const logout = () => {
     clearTokens()
