@@ -5,11 +5,13 @@ import Login from './Login'
 import { clearTokens, hasSession } from './auth'
 import { RTL_LANGUAGES } from './i18n'
 import { mountLiveVideo } from './liveVideo'
+import { mountLiveAlerts } from './liveAlerts'
 import './styles.css'
 import './auth.css'
 import './liveVideo.css'
 import './brand.css'
 import './events.css'
+import './liveAlerts.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
@@ -27,7 +29,12 @@ function Root() {
 
   useEffect(() => {
     if (!authenticated) return undefined
-    return mountLiveVideo()
+    const unmountVideo = mountLiveVideo()
+    const unmountAlerts = mountLiveAlerts()
+    return () => {
+      unmountAlerts?.()
+      unmountVideo?.()
+    }
   }, [authenticated])
 
   const logout = () => {
