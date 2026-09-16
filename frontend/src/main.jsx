@@ -14,6 +14,7 @@ import './brand.css'
 import './events.css'
 import './liveAlerts.css'
 import './sidebar.css'
+import './sidebarDropdown.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
