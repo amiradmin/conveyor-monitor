@@ -1,32 +1,33 @@
 # Conveyor Monitor
 
-AI-powered industrial conveyor belt monitoring platform for real-time **alignment**, **speed**, **tear/damage**, and **material volume** detection using computer vision, with PLC integration for alarms and controlled conveyor shutdown requests.
+AI-powered industrial conveyor belt monitoring platform for real-time **alignment**, **speed**, **tear/damage risk**, and **material flow** monitoring using computer vision, with PLC integration for alarms and controlled conveyor shutdown requests.
 
 > Safety principle: AI never owns the hardwired emergency-stop function. The platform may issue a controlled `STOP_REQUEST` to a PLC only when PLC writes are explicitly enabled. Final interlocks, permissives, and safety actions remain in the PLC / Safety PLC.
 
 ## Architecture
 
-- `backend/` — Django + Django REST Framework API, events, alarms, conveyors and camera configuration.
-- `frontend/` — React + Vite operator dashboard.
-- `services/vision-service/` — camera/video ingestion and computer-vision inference.
+- `backend/` — Django + Django REST Framework API, JWT auth, telemetry, events, alarms, conveyors and camera configuration.
+- `frontend/` — React + Vite three-language operator dashboard (EN/FA/AR).
+- `services/vision-service/` — file/camera ingestion and OpenCV telemetry extraction.
 - `services/plc-gateway/` — isolated PLC integration and controlled-stop policy boundary.
-- PostgreSQL — operational data and event metadata.
+- PostgreSQL — operational telemetry and event metadata.
 - Redis — cache / future realtime task transport.
 - MinIO — event snapshots, clips and training assets.
 - Docker Compose — local development orchestration.
 
-## Initial capabilities
+## Current CV-01 pipeline
 
-- Conveyor and camera inventory.
-- Live conveyor telemetry API.
-- Belt alignment offset/status model.
-- Belt speed measurement model.
-- Tear/damage event model.
-- Material cross-section and volume-flow model.
-- Alarm/event pipeline scaffold.
-- PLC controlled-stop request boundary.
-- Health endpoints for all services.
-- Initial operations dashboard.
+The development stack mounts `frontend/public/conveyor_1.mp4` into the Vision Service and loops it as the current CV-01 source. The service derives:
+
+- belt motion from optical flow;
+- material loading from calibrated texture/edge density;
+- lateral material offset from the detected material centroid;
+- a conservative belt-surface anomaly score used as the current tear-risk signal;
+- confidence and volume-flow telemetry.
+
+The Vision Service publishes telemetry into the Django backend through the internal ingest API. The backend persists samples in PostgreSQL, evaluates alarm thresholds, and exposes status/events to the authenticated dashboard.
+
+The current estimators are calibration-based CV, not a trained production tear detector. The service API is intentionally separated so trained models can replace individual estimators later without changing the frontend/backend contract.
 
 ## Safety defaults
 
@@ -36,28 +37,37 @@ Emergency-stop circuits must remain independent from this application.
 
 ## Quick start
 
+Place the development clip at:
+
+```text
+frontend/public/conveyor_1.mp4
+```
+
+Then:
+
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Then open:
+Open:
 
 - Frontend: http://localhost:5173
-- Backend API: http://localhost:8000/api/health/
+- Backend API: http://localhost:8001/api/health/
 - Vision service: http://localhost:8010/health
+- Vision live telemetry: http://localhost:8010/live
 - PLC gateway: http://localhost:8020/health
 - MinIO console: http://localhost:9001
 
 ## Development roadmap
 
-1. CV-01 end-to-end simulator and dashboard.
-2. RTSP camera ingestion.
-3. Alignment calibration in millimetres.
+1. CV-01 file-based end-to-end telemetry and dashboard — in progress.
+2. RTSP camera ingestion and reconnect policy.
+3. Site calibration for alignment and material cross-section.
 4. Camera/encoder speed cross-validation.
-5. Tear segmentation + temporal confirmation.
-6. Volume-flow calibration.
-7. PLC simulator integration.
+5. Trained tear/damage segmentation + temporal confirmation.
+6. Volume-flow calibration against belt scale / plant instrumentation.
+7. PLC simulator and read-only tag integration.
 8. Controlled-stop rule engine and operator acknowledgement.
 9. Event clips and snapshots in MinIO.
-10. Production hardening, observability and site deployment.
+10. Production hardening, observability, backups, HTTPS and site deployment.
