@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 import threading
 import time
@@ -132,7 +133,7 @@ class VideoMonitor:
             f"alarm-{alarm_id:06d}-{safe_code}"
         )
         snapshot_object = f"{prefix}/snapshot.jpg"
-        clip_object = f"{prefix}/pre_event.avi"
+        clip_object = f"{prefix}/pre_event.mp4"
         metadata_object = f"{prefix}/metadata.json"
 
         client = self._minio_client()
@@ -154,7 +155,7 @@ class VideoMonitor:
                 self.minio_bucket,
                 clip_object,
                 clip_path,
-                content_type="video/x-msvideo",
+                content_type="video/mp4",
             )
         finally:
             try:
@@ -209,42 +210,68 @@ class VideoMonitor:
         )
 
     def _write_evidence_clip(self, frames: list[bytes]) -> str:
-        decoded_frames: list[np.ndarray] = []
-        for encoded in frames:
-            image = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
-            if image is not None:
-                decoded_frames.append(image)
-
-        if not decoded_frames:
+        if not frames:
             self._diagnostics.evidence_failures += 1
-            raise RuntimeError("Unable to decode evidence frames.")
+            raise RuntimeError("Unable to encode an empty evidence clip.")
 
-        height, width = decoded_frames[0].shape[:2]
-        handle = tempfile.NamedTemporaryFile(prefix="conveyor-evidence-", suffix=".avi", delete=False)
+        handle = tempfile.NamedTemporaryFile(prefix="conveyor-evidence-", suffix=".mp4", delete=False)
         path = handle.name
         handle.close()
 
-        writer = cv2.VideoWriter(
+        command = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "image2pipe",
+            "-vcodec",
+            "mjpeg",
+            "-framerate",
+            str(self.evidence_fps),
+            "-i",
+            "pipe:0",
+            "-an",
+            "-vf",
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
             path,
-            cv2.VideoWriter_fourcc(*"MJPG"),
-            float(self.evidence_fps),
-            (width, height),
-        )
-        if not writer.isOpened():
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                input=b"".join(frames),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=max(15, self.evidence_seconds * 4),
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
             try:
                 os.unlink(path)
             except OSError:
                 pass
             self._diagnostics.evidence_failures += 1
-            raise RuntimeError("OpenCV could not initialize the MJPEG evidence writer.")
+            raise RuntimeError(f"Unable to run ffmpeg for evidence encoding: {exc}") from exc
 
-        try:
-            for image in decoded_frames:
-                if image.shape[1] != width or image.shape[0] != height:
-                    image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
-                writer.write(image)
-        finally:
-            writer.release()
+        if completed.returncode != 0 or not os.path.exists(path) or os.path.getsize(path) == 0:
+            error = completed.stderr.decode("utf-8", errors="replace")[-500:]
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            self._diagnostics.evidence_failures += 1
+            raise RuntimeError(f"ffmpeg evidence encoding failed: {error}")
         return path
 
     def _open_source(self) -> cv2.VideoCapture:
