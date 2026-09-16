@@ -32,10 +32,12 @@ function updateEventBadge(sidebar) {
     badge.setAttribute('aria-label', 'Active alarms')
     eventsButton.appendChild(badge)
   }
-  badge.textContent = count > 9 ? '9+' : String(count)
+
+  const nextText = count > 9 ? '9+' : String(count)
+  if (badge.textContent !== nextText) badge.textContent = nextText
 }
 
-function buildSettingsDrawer(sidebar) {
+function buildSettingsDrawer(sidebar, onClose) {
   document.querySelector('.sidebar-settings-drawer')?.remove()
 
   const buttons = sidebar.querySelectorAll('.nav-item')
@@ -75,7 +77,7 @@ function buildSettingsDrawer(sidebar) {
 
   const close = () => {
     drawer.remove()
-    buttons[3]?.classList.remove('active')
+    onClose?.()
   }
 
   drawer.querySelector('.sidebar-settings-close')?.addEventListener('click', close)
@@ -116,12 +118,20 @@ export function mountSidebarEnhancer() {
   let settingsOpen = false
 
   const activate = (index) => {
-    navItems.forEach((item, itemIndex) => item.classList.toggle('active', itemIndex === index))
+    navItems.forEach((item, itemIndex) => {
+      const isActive = itemIndex === index
+      item.classList.toggle('active', isActive)
+      item.setAttribute('aria-current', isActive ? 'page' : 'false')
+    })
+  }
+
+  const closeSettings = () => {
+    settingsOpen = false
+    activate(window.scrollY > 80 ? 1 : 0)
   }
 
   navItems.forEach((button, index) => {
     button.removeAttribute('disabled')
-    button.setAttribute('aria-current', index === 0 ? 'page' : 'false')
 
     const handler = () => {
       if (index !== 3) {
@@ -130,7 +140,6 @@ export function mountSidebarEnhancer() {
       }
 
       activate(index)
-      navItems.forEach((item, itemIndex) => item.setAttribute('aria-current', itemIndex === index ? 'page' : 'false'))
 
       if (index === 0) window.scrollTo({ top: 0, behavior: 'smooth' })
       if (index === 1) scrollToElement('.vision-panel')
@@ -139,11 +148,10 @@ export function mountSidebarEnhancer() {
         const existing = document.querySelector('.sidebar-settings-drawer')
         if (existing) {
           existing.remove()
-          settingsOpen = false
-          activate(0)
+          closeSettings()
         } else {
-          buildSettingsDrawer(sidebar)
           settingsOpen = true
+          buildSettingsDrawer(sidebar, closeSettings)
         }
       }
     }
@@ -164,11 +172,17 @@ export function mountSidebarEnhancer() {
     else activate(0)
   }
 
+  activate(0)
   window.addEventListener('scroll', onScroll, { passive: true })
   cleanup.push(() => window.removeEventListener('scroll', onScroll))
 
   const mutationObserver = new MutationObserver(() => updateEventBadge(sidebar))
-  mutationObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+  mutationObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class'],
+  })
   updateEventBadge(sidebar)
 
   return () => {
