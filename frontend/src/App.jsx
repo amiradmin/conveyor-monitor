@@ -109,6 +109,41 @@ function eventTime(value, lang) {
   return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
 }
 
+function EvidenceViewer({ viewer, onClose, t }) {
+  if (!viewer) return null
+  const active = viewer.active === 'clip' && viewer.clip_url ? 'clip' : 'snapshot'
+  const legacyClip = String(viewer.clip_object || '').toLowerCase().endsWith('.avi')
+
+  return (
+    <div className="evidence-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="evidence-modal" role="dialog" aria-modal="true" aria-label={t.evidence} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="evidence-modal-header">
+          <div>
+            <span className={`evidence-severity ${eventTone(viewer.event.severity)}`}>{viewer.event.severity}</span>
+            <h3>{eventTitle(viewer.event, t)}</h3>
+            <p>{viewer.event.message}</p>
+          </div>
+          <button className="evidence-close" type="button" onClick={onClose}>{t.close}</button>
+        </div>
+        <div className="evidence-tabs">
+          {viewer.snapshot_url && <button type="button" className={active === 'snapshot' ? 'active' : ''} onClick={() => viewer.setActive('snapshot')}>{t.snapshot}</button>}
+          {viewer.clip_url && <button type="button" className={active === 'clip' ? 'active' : ''} onClick={() => viewer.setActive('clip')}>{t.clip}</button>}
+        </div>
+        <div className="evidence-media">
+          {active === 'snapshot' && viewer.snapshot_url && <img src={viewer.snapshot_url} alt={`${eventTitle(viewer.event, t)} ${t.snapshot}`} />}
+          {active === 'clip' && viewer.clip_url && !legacyClip && <video key={viewer.clip_url} src={viewer.clip_url} controls autoPlay playsInline />}
+          {active === 'clip' && viewer.clip_url && legacyClip && (
+            <div className="legacy-clip">
+              <p>{t.legacyClip}</p>
+              <a href={viewer.clip_url} target="_blank" rel="noreferrer">{t.openClip}</a>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export default function App({ lang, setLang, onLogout }) {
   const t = getTranslation(lang)
   const rtl = RTL_LANGUAGES.has(lang)
@@ -116,6 +151,8 @@ export default function App({ lang, setLang, onLogout }) {
   const [events, setEvents] = useState([])
   const [error, setError] = useState('')
   const [acknowledgingId, setAcknowledgingId] = useState(null)
+  const [evidenceLoadingId, setEvidenceLoadingId] = useState(null)
+  const [evidenceViewer, setEvidenceViewer] = useState(null)
 
   useEffect(() => {
     let mounted = true
@@ -174,6 +211,37 @@ export default function App({ lang, setLang, onLogout }) {
     }
   }
 
+  async function openEvidence(event, preferred = 'snapshot') {
+    if (event.evidence_status !== 'READY') {
+      setError(event.evidence_status === 'PENDING' ? t.evidencePending : t.evidenceUnavailable)
+      return
+    }
+    setEvidenceLoadingId(event.id)
+    try {
+      const response = await authFetch(`${API}/events/${event.id}/evidence/`)
+      if (response.status === 401) {
+        onLogout()
+        return
+      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload.detail || `HTTP ${response.status}`)
+      }
+      const payload = await response.json()
+      setEvidenceViewer({
+        event,
+        ...payload,
+        active: preferred,
+        setActive: (active) => setEvidenceViewer((current) => current ? { ...current, active } : current),
+      })
+      setError('')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setEvidenceLoadingId(null)
+    }
+  }
+
   const view = useMemo(() => {
     const speed = Number(data?.speed_mps ?? 0)
     const alignment = Number(data?.alignment_offset_mm ?? 0)
@@ -214,6 +282,11 @@ export default function App({ lang, setLang, onLogout }) {
     }
   }, [data, t])
 
+  const activeAlarm = useMemo(
+    () => events.find((event) => !event.acknowledged && (event.severity === 'CRITICAL' || event.severity === 'WARNING')) || null,
+    [events],
+  )
+
   return (
     <div className={`app-shell ${rtl ? 'rtl-ui' : ''}`}>
       <Sidebar t={t} />
@@ -251,6 +324,21 @@ export default function App({ lang, setLang, onLogout }) {
                 <div><span className="state-dot small"/> <strong>{t.liveVision}</strong></div>
                 <small>CV-01&nbsp;&nbsp;·&nbsp;&nbsp;1280 × 720</small>
               </div>
+              {activeAlarm && (
+                <div className={`live-alarm-banner ${activeAlarm.severity === 'CRITICAL' ? 'critical' : 'warning'}`}>
+                  <div className="live-alarm-copy">
+                    <span>{t.liveAlarm}</span>
+                    <strong>{eventTitle(activeAlarm, t)}</strong>
+                    <small>{activeAlarm.message}</small>
+                  </div>
+                  <div className="live-alarm-actions">
+                    {activeAlarm.evidence_status === 'READY' && activeAlarm.snapshot_object && (
+                      <button type="button" disabled={evidenceLoadingId === activeAlarm.id} onClick={() => openEvidence(activeAlarm, 'snapshot')}>{t.snapshot}</button>
+                    )}
+                    <button type="button" disabled={acknowledgingId === activeAlarm.id} onClick={() => acknowledgeEvent(activeAlarm.id)}>{t.acknowledge}</button>
+                  </div>
+                </div>
+              )}
             </div>
           </article>
 
@@ -280,16 +368,26 @@ export default function App({ lang, setLang, onLogout }) {
                 <span className={`event-dot ${eventTone(event.severity)}`}/>
                 <strong>{eventTitle(event, t)}</strong>
                 <span className="event-detail">{event.message}</span>
-                {event.acknowledged ? (
-                  <span className="event-acknowledged">{t.acknowledged}</span>
-                ) : (
-                  <button className="event-ack-button" type="button" disabled={acknowledgingId === event.id} onClick={() => acknowledgeEvent(event.id)}>{t.acknowledge}</button>
-                )}
+                <div className="event-actions">
+                  {event.evidence_status === 'READY' && event.snapshot_object && (
+                    <button className="event-evidence-button" type="button" disabled={evidenceLoadingId === event.id} onClick={() => openEvidence(event, 'snapshot')}>{t.snapshot}</button>
+                  )}
+                  {event.evidence_status === 'READY' && event.clip_object && (
+                    <button className="event-evidence-button" type="button" disabled={evidenceLoadingId === event.id} onClick={() => openEvidence(event, 'clip')}>{t.clip}</button>
+                  )}
+                  {event.evidence_status === 'PENDING' && <span className="event-evidence-state">{t.evidencePending}</span>}
+                  {event.acknowledged ? (
+                    <span className="event-acknowledged">{t.acknowledged}</span>
+                  ) : (
+                    <button className="event-ack-button" type="button" disabled={acknowledgingId === event.id} onClick={() => acknowledgeEvent(event.id)}>{t.acknowledge}</button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </section>
       </main>
+      <EvidenceViewer viewer={evidenceViewer} onClose={() => setEvidenceViewer(null)} t={t} />
     </div>
   )
 }
