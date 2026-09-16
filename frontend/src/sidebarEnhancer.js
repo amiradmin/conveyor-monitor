@@ -89,10 +89,16 @@ function buildSettingsDrawer(sidebar, onClose) {
 
   drawer.querySelector('.sidebar-settings-close')?.addEventListener('click', close)
   drawer.querySelector('#sidebar-language-select')?.addEventListener('change', (event) => {
-    const code = event.target.value
-    const topbarButton = [...document.querySelectorAll('.language-switcher button')]
-      .find((button) => button.textContent?.trim().toUpperCase() === code)
-    topbarButton?.click()
+    const code = String(event.target.value || 'EN').toLowerCase()
+    const topbarSelect = document.querySelector('.header-language-select select')
+    if (topbarSelect) {
+      topbarSelect.value = code
+      topbarSelect.dispatchEvent(new Event('change', { bubbles: true }))
+    } else {
+      const topbarButton = [...document.querySelectorAll('.language-switcher button')]
+        .find((button) => button.textContent?.trim().toLowerCase() === code)
+      topbarButton?.click()
+    }
     close()
   })
 
