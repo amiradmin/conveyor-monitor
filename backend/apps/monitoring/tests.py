@@ -1,12 +1,12 @@
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-from rest_framework.test import APIClient
-
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 
 from .models import Alarm, Conveyor, TelemetrySample
 
 
+@override_settings(EVIDENCE_CAPTURE_ENABLED=False)
 class MonitoringApiTests(TestCase):
     def setUp(self) -> None:
         self.user = get_user_model().objects.create_user(username="operator", password="test-pass-123")
