@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 class Conveyor(models.Model):
@@ -64,3 +65,12 @@ class Alarm(models.Model):
     clip_object = models.CharField(max_length=500, blank=True)
     evidence_error = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conveyor", "condition_key"],
+                condition=Q(active=True) & ~Q(condition_key=""),
+                name="uniq_active_alarm_condition",
+            )
+        ]
