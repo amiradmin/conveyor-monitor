@@ -9,6 +9,7 @@ import './styles.css'
 import './auth.css'
 import './liveVideo.css'
 import './brand.css'
+import './events.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
