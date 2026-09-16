@@ -107,9 +107,16 @@ BULK_DENSITY_T_PER_M3 = float(os.getenv("BULK_DENSITY_T_PER_M3", "1.32"))
 NOMINAL_CAPACITY_TPH = float(os.getenv("NOMINAL_CAPACITY_TPH", "600"))
 TELEMETRY_STALE_SECONDS = int(os.getenv("TELEMETRY_STALE_SECONDS", "6"))
 ALARM_COOLDOWN_SECONDS = int(os.getenv("ALARM_COOLDOWN_SECONDS", "60"))
+
+# Alarm trigger thresholds plus lower recovery thresholds provide hysteresis.
+# ACK only means the operator has seen the alarm; the condition stays latched
+# until the measured value crosses its recovery threshold.
 ALIGNMENT_WARNING_MM = float(os.getenv("ALIGNMENT_WARNING_MM", "25"))
 ALIGNMENT_CRITICAL_MM = float(os.getenv("ALIGNMENT_CRITICAL_MM", "40"))
+ALIGNMENT_RECOVERY_MM = float(os.getenv("ALIGNMENT_RECOVERY_MM", "20"))
 TEAR_WARNING_PROBABILITY = float(os.getenv("TEAR_WARNING_PROBABILITY", "0.35"))
 TEAR_CRITICAL_PROBABILITY = float(os.getenv("TEAR_CRITICAL_PROBABILITY", "0.65"))
+TEAR_RECOVERY_PROBABILITY = float(os.getenv("TEAR_RECOVERY_PROBABILITY", "0.25"))
 OVERLOAD_WARNING_PERCENT = float(os.getenv("OVERLOAD_WARNING_PERCENT", "80"))
 OVERLOAD_CRITICAL_PERCENT = float(os.getenv("OVERLOAD_CRITICAL_PERCENT", "100"))
+OVERLOAD_RECOVERY_PERCENT = float(os.getenv("OVERLOAD_RECOVERY_PERCENT", "75"))
