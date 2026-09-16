@@ -8,11 +8,11 @@ AI-powered industrial conveyor belt monitoring platform for real-time **alignmen
 
 - `backend/` — Django + Django REST Framework API, JWT auth, telemetry, events, alarms, conveyors and camera configuration.
 - `frontend/` — React + Vite three-language operator dashboard (EN/FA/AR).
-- `services/vision-service/` — file/camera ingestion and OpenCV telemetry extraction.
+- `services/vision-service/` — file/camera ingestion, OpenCV telemetry extraction and alarm evidence capture.
 - `services/plc-gateway/` — isolated PLC integration and controlled-stop policy boundary.
 - PostgreSQL — operational telemetry and event metadata.
 - Redis — cache / future realtime task transport.
-- MinIO — event snapshots, clips and training assets.
+- MinIO — alarm snapshots, pre-event clips, metadata and training assets.
 - Docker Compose — local development orchestration.
 
 ## Current CV-01 pipeline
@@ -26,6 +26,14 @@ The development stack mounts `frontend/public/conveyor_1.mp4` into the Vision Se
 - confidence and volume-flow telemetry.
 
 The Vision Service publishes telemetry into the Django backend through the internal ingest API. The backend persists samples in PostgreSQL, evaluates alarm thresholds, and exposes status/events to the authenticated dashboard.
+
+When the backend creates a new alarm, evidence capture is queued without blocking telemetry ingestion. The Vision Service keeps a short JPEG ring buffer and stores three objects in the `conveyor-events` MinIO bucket:
+
+- `snapshot.jpg` — the newest buffered frame;
+- `pre_event.avi` — the seconds immediately leading up to the alarm;
+- `metadata.json` — alarm details plus the latest CV telemetry.
+
+The Alarm row stores the snapshot/clip object names and an evidence state (`PENDING`, `READY`, or `FAILED`). Operators can retry evidence capture through the alarm evidence API.
 
 The current estimators are calibration-based CV, not a trained production tear detector. The service API is intentionally separated so trained models can replace individual estimators later without changing the frontend/backend contract.
 
@@ -61,7 +69,7 @@ Open:
 
 ## Development roadmap
 
-1. CV-01 file-based end-to-end telemetry and dashboard — in progress.
+1. CV-01 file-based end-to-end telemetry and dashboard — operational.
 2. RTSP camera ingestion and reconnect policy.
 3. Site calibration for alignment and material cross-section.
 4. Camera/encoder speed cross-validation.
@@ -69,5 +77,5 @@ Open:
 6. Volume-flow calibration against belt scale / plant instrumentation.
 7. PLC simulator and read-only tag integration.
 8. Controlled-stop rule engine and operator acknowledgement.
-9. Event clips and snapshots in MinIO.
-10. Production hardening, observability, backups, HTTPS and site deployment.
+9. Alarm snapshots + pre-event clips in MinIO — operational for CV-01.
+10. Production hardening, durable background jobs, observability, backups, HTTPS and site deployment.
