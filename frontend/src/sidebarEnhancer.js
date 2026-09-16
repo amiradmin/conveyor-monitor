@@ -46,6 +46,8 @@ function buildSettingsDrawer(sidebar, onClose) {
   const systemDetail = document.querySelector('.system-state div span')?.textContent?.trim() || ''
   const plcLabel = document.querySelector('.plc-row .metric-label')?.textContent?.trim() || 'PLC'
   const plcValue = document.querySelector('.plc-row .plc-value')?.textContent?.trim() || 'Read Only'
+  const currentLanguage = (document.documentElement.lang || 'en').toLowerCase()
+  const languageLabel = currentLanguage === 'fa' ? 'زبان' : currentLanguage === 'ar' ? 'اللغة' : 'Language'
 
   const drawer = document.createElement('section')
   drawer.className = 'sidebar-settings-drawer'
@@ -63,9 +65,14 @@ function buildSettingsDrawer(sidebar, onClose) {
       <div><strong>${systemLabel}</strong><span>${systemDetail}</span></div>
     </div>
     <div class="sidebar-settings-language">
-      <button type="button" data-lang="EN">EN</button>
-      <button type="button" data-lang="FA">FA</button>
-      <button type="button" data-lang="AR">AR</button>
+      <label for="sidebar-language-select">${languageLabel}</label>
+      <div class="sidebar-language-select-wrap">
+        <select id="sidebar-language-select" aria-label="${languageLabel}">
+          <option value="EN" ${currentLanguage === 'en' ? 'selected' : ''}>English</option>
+          <option value="FA" ${currentLanguage === 'fa' ? 'selected' : ''}>فارسی</option>
+          <option value="AR" ${currentLanguage === 'ar' ? 'selected' : ''}>العربية</option>
+        </select>
+      </div>
     </div>
     <div class="sidebar-settings-plc">
       <span>${plcLabel}</span>
@@ -81,14 +88,12 @@ function buildSettingsDrawer(sidebar, onClose) {
   }
 
   drawer.querySelector('.sidebar-settings-close')?.addEventListener('click', close)
-  drawer.querySelectorAll('[data-lang]').forEach((languageButton) => {
-    languageButton.addEventListener('click', () => {
-      const code = languageButton.dataset.lang
-      const topbarButton = [...document.querySelectorAll('.language-switcher button')]
-        .find((button) => button.textContent?.trim().toUpperCase() === code)
-      topbarButton?.click()
-      close()
-    })
+  drawer.querySelector('#sidebar-language-select')?.addEventListener('change', (event) => {
+    const code = event.target.value
+    const topbarButton = [...document.querySelectorAll('.language-switcher button')]
+      .find((button) => button.textContent?.trim().toUpperCase() === code)
+    topbarButton?.click()
+    close()
   })
 
   return drawer
