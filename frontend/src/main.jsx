@@ -8,6 +8,7 @@ import { mountLiveVideo } from './liveVideo'
 import './styles.css'
 import './auth.css'
 import './liveVideo.css'
+import './brand.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
