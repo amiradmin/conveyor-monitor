@@ -299,8 +299,18 @@ export default function App({ lang, setLang, onLogout }) {
             <span className="asset-id">CV-01</span>
           </div>
           <div className="topbar-actions">
-            <div className="language-switcher">
-              {LANGUAGE_OPTIONS.map((item) => <button type="button" key={item.code} className={lang === item.code ? 'active' : ''} onClick={() => setLang(item.code)}>{item.short}</button>)}
+            <div className="language-switcher header-language-select">
+              <label className="topbar-language-field">
+                <span className="topbar-language-label">{t.language}</span>
+                <span className="topbar-language-control">
+                  <select aria-label={t.language} value={lang} onChange={(event) => setLang(event.target.value)}>
+                    {LANGUAGE_OPTIONS.map((item) => (
+                      <option key={item.code} value={item.code}>{item.short} — {item.label}</option>
+                    ))}
+                  </select>
+                  <Icon name="chevron" size={15} />
+                </span>
+              </label>
             </div>
             <div className="system-state">
               <span className="state-dot" />
