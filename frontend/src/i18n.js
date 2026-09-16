@@ -29,7 +29,7 @@ export const translations = {
     snapshot: 'Snapshot', clip: 'Clip', evidence: 'Alarm Evidence', close: 'Close', loadingEvidence: 'Loading evidence…',
     evidencePending: 'Evidence is being prepared', evidenceUnavailable: 'Evidence is not available',
     legacyClip: 'This older AVI clip may not play in the browser. Open it in a new tab to download or view externally.',
-    openClip: 'Open clip', liveAlarm: 'LIVE ALARM',
+    openClip: 'Open clip', liveAlarm: 'LIVE ALARM', activeCondition: 'ACTIVE', recovered: 'RECOVERED',
   },
   fa: {
     appName: 'پایش هوشمند نوار نقاله', asset: 'CV-01',
@@ -53,7 +53,7 @@ export const translations = {
     snapshot: 'تصویر', clip: 'کلیپ', evidence: 'مدرک هشدار', close: 'بستن', loadingEvidence: 'در حال دریافت مدرک…',
     evidencePending: 'مدرک در حال آماده‌سازی است', evidenceUnavailable: 'مدرک در دسترس نیست',
     legacyClip: 'این کلیپ قدیمی AVI ممکن است داخل مرورگر پخش نشود. آن را در تب جدید باز کنید.',
-    openClip: 'باز کردن کلیپ', liveAlarm: 'هشدار زنده',
+    openClip: 'باز کردن کلیپ', liveAlarm: 'هشدار زنده', activeCondition: 'فعال', recovered: 'رفع شده',
   },
   ar: {
     appName: 'مراقبة الناقل بالذكاء الاصطناعي', asset: 'CV-01',
@@ -77,7 +77,7 @@ export const translations = {
     snapshot: 'صورة', clip: 'مقطع', evidence: 'دليل الإنذار', close: 'إغلاق', loadingEvidence: 'جارٍ تحميل الدليل…',
     evidencePending: 'يتم تجهيز الدليل', evidenceUnavailable: 'الدليل غير متاح',
     legacyClip: 'قد لا يعمل مقطع AVI القديم داخل المتصفح. افتحه في علامة تبويب جديدة.',
-    openClip: 'فتح المقطع', liveAlarm: 'إنذار مباشر',
+    openClip: 'فتح المقطع', liveAlarm: 'إنذار مباشر', activeCondition: 'نشط', recovered: 'تمت المعالجة',
   },
 }
 
