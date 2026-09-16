@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 
 from .engine import analyze
-from .models import FrameMetrics, VisionResult
+from .models import EvidenceRequest, EvidenceResult, FrameMetrics, VisionResult
 from .video_monitor import VideoMonitor
 
 monitor = VideoMonitor()
@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
         monitor.stop()
 
 
-app = FastAPI(title="Conveyor Vision Service", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Conveyor Vision Service", version="0.3.0", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -32,6 +32,10 @@ def health() -> dict:
         "frames_processed": diagnostics["frames_processed"],
         "analyses_published": diagnostics["analyses_published"],
         "backend_pushes": diagnostics["backend_pushes"],
+        "evidence_captures": diagnostics["evidence_captures"],
+        "evidence_failures": diagnostics["evidence_failures"],
+        "evidence_buffer_frames": diagnostics["evidence_buffer_frames"],
+        "last_evidence_object": diagnostics["last_evidence_object"],
         "last_error": diagnostics["last_error"],
     }
 
@@ -54,13 +58,17 @@ def live() -> VisionResult:
     return latest
 
 
+@app.post("/evidence", response_model=EvidenceResult)
+def evidence(request: EvidenceRequest) -> EvidenceResult:
+    try:
+        payload = monitor.capture_evidence(request.model_dump())
+        return EvidenceResult(**payload)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @app.get("/demo", response_model=VisionResult)
 def demo() -> VisionResult:
-    """Compatibility endpoint used by the backend refresh path.
-
-    It now returns the latest frame-derived telemetry. A deterministic fallback
-    is retained only for startup or deployments where no video source exists.
-    """
     latest = monitor.latest()
     if latest is not None:
         return latest
