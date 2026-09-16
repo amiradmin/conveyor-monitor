@@ -5,6 +5,7 @@ import Login from './Login'
 import { clearTokens, hasSession } from './auth'
 import { RTL_LANGUAGES } from './i18n'
 import './styles.css'
+import './auth.css'
 
 function Root() {
   const [authenticated, setAuthenticated] = useState(hasSession())
