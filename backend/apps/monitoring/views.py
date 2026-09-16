@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
-from django.db import close_old_connections
+from django.db import IntegrityError, close_old_connections
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from minio import Minio
@@ -142,19 +142,30 @@ def _create_active_alarm(
     severity: str,
     message: str,
 ) -> Alarm:
-    alarm = Alarm.objects.create(
-        conveyor=conveyor,
-        condition_key=condition_key,
-        code=code,
-        severity=severity,
-        message=message,
-        active=True,
-        evidence_status=(
-            Alarm.EvidenceStatus.PENDING
-            if settings.EVIDENCE_CAPTURE_ENABLED
-            else Alarm.EvidenceStatus.NONE
-        ),
-    )
+    try:
+        alarm = Alarm.objects.create(
+            conveyor=conveyor,
+            condition_key=condition_key,
+            code=code,
+            severity=severity,
+            message=message,
+            active=True,
+            evidence_status=(
+                Alarm.EvidenceStatus.PENDING
+                if settings.EVIDENCE_CAPTURE_ENABLED
+                else Alarm.EvidenceStatus.NONE
+            ),
+        )
+    except IntegrityError:
+        existing = Alarm.objects.filter(
+            conveyor=conveyor,
+            condition_key=condition_key,
+            active=True,
+        ).order_by("-created_at").first()
+        if existing is not None:
+            return existing
+        raise
+
     _queue_alarm_evidence(alarm)
     return alarm
 
