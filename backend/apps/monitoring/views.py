@@ -71,12 +71,7 @@ def _minio_client(endpoint_value: str, *, secure: bool) -> Minio:
 
 
 def _capture_alarm_evidence(alarm_id: int) -> None:
-    """Capture evidence without blocking telemetry ingestion.
-
-    This lightweight background thread is sufficient for the current single-site
-    deployment. A production multi-site deployment can replace it with Celery or
-    another durable task queue without changing the API contract.
-    """
+    """Capture evidence without blocking telemetry ingestion."""
     if not settings.EVIDENCE_CAPTURE_ENABLED:
         return
 
@@ -140,22 +135,20 @@ def _queue_alarm_evidence(alarm: Alarm) -> None:
     ).start()
 
 
-def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> Alarm | None:
-    cutoff = timezone.now() - timedelta(seconds=settings.ALARM_COOLDOWN_SECONDS)
-    exists = Alarm.objects.filter(
-        conveyor=conveyor,
-        code=code,
-        acknowledged=False,
-        created_at__gte=cutoff,
-    ).exists()
-    if exists:
-        return None
-
+def _create_active_alarm(
+    conveyor: Conveyor,
+    condition_key: str,
+    code: str,
+    severity: str,
+    message: str,
+) -> Alarm:
     alarm = Alarm.objects.create(
         conveyor=conveyor,
+        condition_key=condition_key,
         code=code,
         severity=severity,
         message=message,
+        active=True,
         evidence_status=(
             Alarm.EvidenceStatus.PENDING
             if settings.EVIDENCE_CAPTURE_ENABLED
@@ -166,55 +159,119 @@ def _emit_alarm(conveyor: Conveyor, code: str, severity: str, message: str) -> A
     return alarm
 
 
+def _resolve_alarm(alarm: Alarm) -> None:
+    if not alarm.active:
+        return
+    alarm.active = False
+    alarm.resolved_at = timezone.now()
+    alarm.save(update_fields=["active", "resolved_at"])
+
+
+def _sync_alarm_condition(
+    conveyor: Conveyor,
+    *,
+    condition_key: str,
+    value: float,
+    warning_threshold: float,
+    critical_threshold: float,
+    recovery_threshold: float,
+    warning_code: str,
+    critical_code: str,
+    message: str,
+) -> None:
+    """Latch one alarm per condition until a lower recovery threshold is crossed.
+
+    Acknowledgement is intentionally independent of condition state. ACK silences
+    the operator-facing notification, but the alarm remains active and cannot be
+    re-created while the measured condition persists. Warning alarms may escalate
+    to critical; critical alarms remain latched until full recovery.
+    """
+    active_alarm = (
+        Alarm.objects.filter(
+            conveyor=conveyor,
+            condition_key=condition_key,
+            active=True,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+
+    if active_alarm is not None:
+        if value < recovery_threshold:
+            _resolve_alarm(active_alarm)
+            return
+
+        if active_alarm.severity == Alarm.Severity.CRITICAL:
+            return
+
+        if value >= critical_threshold:
+            _resolve_alarm(active_alarm)
+            _create_active_alarm(
+                conveyor,
+                condition_key,
+                critical_code,
+                Alarm.Severity.CRITICAL,
+                message,
+            )
+        return
+
+    if value >= critical_threshold:
+        _create_active_alarm(
+            conveyor,
+            condition_key,
+            critical_code,
+            Alarm.Severity.CRITICAL,
+            message,
+        )
+    elif value >= warning_threshold:
+        _create_active_alarm(
+            conveyor,
+            condition_key,
+            warning_code,
+            Alarm.Severity.WARNING,
+            message,
+        )
+
+
 def _evaluate_alarms(conveyor: Conveyor, sample: TelemetrySample) -> None:
     alignment = _float(sample.alignment_offset_mm)
+    alignment_magnitude = abs(alignment)
     tear_probability = _float(sample.tear_probability)
     load_percent = _load_percent(_float(sample.volume_m3h))
 
-    if abs(alignment) >= settings.ALIGNMENT_CRITICAL_MM:
-        _emit_alarm(
-            conveyor,
-            "ALIGNMENT_CRITICAL",
-            Alarm.Severity.CRITICAL,
-            f"Belt alignment offset is {alignment:.1f} mm.",
-        )
-    elif abs(alignment) >= settings.ALIGNMENT_WARNING_MM:
-        _emit_alarm(
-            conveyor,
-            "ALIGNMENT_WARNING",
-            Alarm.Severity.WARNING,
-            f"Belt alignment offset is {alignment:.1f} mm.",
-        )
-
-    if tear_probability >= settings.TEAR_CRITICAL_PROBABILITY:
-        _emit_alarm(
-            conveyor,
-            "TEAR_CRITICAL",
-            Alarm.Severity.CRITICAL,
-            f"Tear probability reached {tear_probability:.0%}.",
-        )
-    elif tear_probability >= settings.TEAR_WARNING_PROBABILITY:
-        _emit_alarm(
-            conveyor,
-            "TEAR_WARNING",
-            Alarm.Severity.WARNING,
-            f"Tear probability reached {tear_probability:.0%}.",
-        )
-
-    if load_percent >= settings.OVERLOAD_CRITICAL_PERCENT:
-        _emit_alarm(
-            conveyor,
-            "OVERLOAD_CRITICAL",
-            Alarm.Severity.CRITICAL,
-            f"Conveyor load reached {load_percent:.0f}% of nominal capacity.",
-        )
-    elif load_percent >= settings.OVERLOAD_WARNING_PERCENT:
-        _emit_alarm(
-            conveyor,
-            "OVERLOAD_WARNING",
-            Alarm.Severity.WARNING,
-            f"Conveyor load reached {load_percent:.0f}% of nominal capacity.",
-        )
+    _sync_alarm_condition(
+        conveyor,
+        condition_key="ALIGNMENT",
+        value=alignment_magnitude,
+        warning_threshold=settings.ALIGNMENT_WARNING_MM,
+        critical_threshold=settings.ALIGNMENT_CRITICAL_MM,
+        recovery_threshold=settings.ALIGNMENT_RECOVERY_MM,
+        warning_code="ALIGNMENT_WARNING",
+        critical_code="ALIGNMENT_CRITICAL",
+        message=f"Belt alignment offset is {alignment:.1f} mm.",
+    )
+    _sync_alarm_condition(
+        conveyor,
+        condition_key="TEAR",
+        value=tear_probability,
+        warning_threshold=settings.TEAR_WARNING_PROBABILITY,
+        critical_threshold=settings.TEAR_CRITICAL_PROBABILITY,
+        recovery_threshold=settings.TEAR_RECOVERY_PROBABILITY,
+        warning_code="TEAR_WARNING",
+        critical_code="TEAR_CRITICAL",
+        message=f"Tear probability reached {tear_probability:.0%}.",
+    )
+    _sync_alarm_condition(
+        conveyor,
+        condition_key="OVERLOAD",
+        value=load_percent,
+        warning_threshold=settings.OVERLOAD_WARNING_PERCENT,
+        critical_threshold=settings.OVERLOAD_CRITICAL_PERCENT,
+        recovery_threshold=settings.OVERLOAD_RECOVERY_PERCENT,
+        warning_code="OVERLOAD_WARNING",
+        critical_code="OVERLOAD_CRITICAL",
+        message=f"Conveyor load reached {load_percent:.0f}% of nominal capacity.",
+    )
 
 
 def _create_sample(conveyor: Conveyor, payload: dict[str, Any]) -> TelemetrySample:
@@ -287,6 +344,7 @@ def _status_payload(conveyor: Conveyor, sample: TelemetrySample, source: str) ->
         "tear_probability": tear_probability,
         "tear_status": _tear_status(tear_probability),
         "ai_confidence": confidence,
+        "active_alarm_count": conveyor.alarms.filter(active=True).count(),
         "plc_write_enabled": settings.PLC_WRITE_ENABLED,
         "plc_state": "AUTO_RUNNING" if state == "RUNNING" else state,
     }
@@ -355,6 +413,9 @@ def events(request):
     acknowledged = request.query_params.get("acknowledged")
     if acknowledged in {"true", "false"}:
         queryset = queryset.filter(acknowledged=acknowledged == "true")
+    active = request.query_params.get("active")
+    if active in {"true", "false"}:
+        queryset = queryset.filter(active=active == "true")
 
     return Response(AlarmSerializer(queryset[:limit], many=True).data)
 
