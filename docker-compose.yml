@@ -44,7 +44,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:${BACKEND_HOST_PORT:-8001}:8000"
+      - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:${BACKEND_HOST_PORT:-8001}:8000"
     volumes:
       - ./backend:/app
     depends_on:
