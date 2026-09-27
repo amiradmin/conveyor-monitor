@@ -55,6 +55,7 @@ class VideoMonitor:
         self.source = os.getenv("VISION_VIDEO_SOURCE", "/data/conveyor_1.mp4")
         self.loop = os.getenv("VISION_LOOP", "true").lower() == "true"
         self.publish_hz = max(0.2, float(os.getenv("VISION_PUBLISH_HZ", "2")))
+        self.analysis_fps = max(self.publish_hz, float(os.getenv("VISION_ANALYSIS_FPS", "6")))
         self.processing_width = max(320, int(os.getenv("VISION_PROCESSING_WIDTH", "480")))
         self.belt_width_mm = float(os.getenv("VISION_BELT_WIDTH_MM", "1200"))
         self.speed_scale = float(os.getenv("VISION_SPEED_SCALE", "0.063"))
@@ -83,6 +84,7 @@ class VideoMonitor:
         self._prev_gray: np.ndarray | None = None
         self._smoothed: dict[str, float] = {}
         self._last_publish = 0.0
+        self._last_analysis = 0.0
         self._last_push = 0.0
         self._last_evidence_frame = 0.0
         self._evidence_lock = threading.Lock()
@@ -112,6 +114,7 @@ class VideoMonitor:
         with self._evidence_lock:
             data["evidence_buffer_frames"] = len(self._evidence_frames)
         data["evidence_buffer_seconds"] = self.evidence_seconds
+        data["analysis_fps"] = self.analysis_fps
         data["evidence_fps"] = self.evidence_fps
         data["minio_bucket"] = self.minio_bucket
         return data
@@ -330,7 +333,20 @@ class VideoMonitor:
                     self._diagnostics.frames_processed += 1
                     now = time.monotonic()
                     self._buffer_evidence_frame(frame, now)
-                    metrics = self._estimate_metrics(frame, fps)
+
+                    if now - self._last_analysis < 1.0 / self.analysis_fps:
+                        if frame_sleep:
+                            elapsed = time.monotonic() - started
+                            if elapsed < frame_sleep:
+                                time.sleep(frame_sleep - elapsed)
+                        continue
+
+                    analysis_interval = (
+                        now - self._last_analysis if self._last_analysis > 0 else 1.0 / self.analysis_fps
+                    )
+                    self._last_analysis = now
+                    effective_fps = 1.0 / max(analysis_interval, 1e-6)
+                    metrics = self._estimate_metrics(frame, effective_fps)
 
                     if now - self._last_publish >= 1.0 / self.publish_hz:
                         result = analyze(metrics)
