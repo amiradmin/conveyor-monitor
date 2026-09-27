@@ -70,6 +70,7 @@ class VideoMonitor:
         self.evidence_fps = max(2, int(os.getenv("EVIDENCE_FPS", "6")))
         self.evidence_width = max(320, int(os.getenv("EVIDENCE_WIDTH", "960")))
         self.evidence_jpeg_quality = min(95, max(50, int(os.getenv("EVIDENCE_JPEG_QUALITY", "82"))))
+        self.evidence_video_encoder = os.getenv("EVIDENCE_VIDEO_ENCODER", "auto").strip().lower()
         self.minio_endpoint = os.getenv("MINIO_ENDPOINT", "minio:9000")
         self.minio_access_key = os.getenv("MINIO_ROOT_USER", "minioadmin")
         self.minio_secret_key = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin123")
@@ -218,6 +219,7 @@ class VideoMonitor:
         path = handle.name
         handle.close()
 
+        encoder = self._evidence_encoder()
         command = [
             "ffmpeg",
             "-hide_banner",
@@ -236,11 +238,13 @@ class VideoMonitor:
             "-vf",
             "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v",
-            "libx264",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "23",
+            encoder,
+        ]
+        if encoder == "h264_nvenc":
+            command += ["-preset", "p4", "-cq", "23"]
+        else:
+            command += ["-preset", "veryfast", "-crf", "23"]
+        command += [
             "-pix_fmt",
             "yuv420p",
             "-movflags",
@@ -273,6 +277,19 @@ class VideoMonitor:
             self._diagnostics.evidence_failures += 1
             raise RuntimeError(f"ffmpeg evidence encoding failed: {error}")
         return path
+
+    def _evidence_encoder(self) -> str:
+        """Prefer NVENC when the NVIDIA runtime is available, otherwise use CPU x264."""
+        configured = self.evidence_video_encoder
+        if configured in {"libx264", "h264_nvenc"}:
+            return configured
+        if configured not in {"", "auto"}:
+            raise RuntimeError(
+                "EVIDENCE_VIDEO_ENCODER must be auto, h264_nvenc, or libx264"
+            )
+        if Path("/dev/nvidia0").exists() or Path("/dev/nvidiactl").exists():
+            return "h264_nvenc"
+        return "libx264"
 
     def _open_source(self) -> cv2.VideoCapture:
         source: str | int = self.source
