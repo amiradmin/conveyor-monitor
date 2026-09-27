@@ -57,6 +57,7 @@ services:
     build:
       context: ./services/vision-service
       network: host
+    gpus: all
     env_file:
       - .env
     environment:
@@ -73,6 +74,7 @@ services:
       EVIDENCE_FPS: ${EVIDENCE_FPS:-6}
       EVIDENCE_WIDTH: ${EVIDENCE_WIDTH:-960}
       EVIDENCE_JPEG_QUALITY: ${EVIDENCE_JPEG_QUALITY:-82}
+      EVIDENCE_VIDEO_ENCODER: ${EVIDENCE_VIDEO_ENCODER:-auto}
     ports:
       - "8010:8010"
     volumes:
