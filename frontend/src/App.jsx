@@ -282,6 +282,13 @@ export default function App({ lang, setLang, onLogout }) {
     }
   }, [data, t])
 
+  const beltHealth = Math.max(0, Math.min(100, Math.round(100 - Math.max(view.tearRisk * 0.65, Math.abs(view.alignment) * 0.45, Math.max(0, view.loadPercent - 70) * 0.35))))
+  const detectionStates = [
+    { label: 'Belt Damage', value: view.tearRisk >= 60 ? 'ALARM' : view.tearRisk >= 25 ? 'WARNING' : 'NORMAL', tone: view.tearRisk >= 60 ? 'alarm' : view.tearRisk >= 25 ? 'warn' : 'ok' },
+    { label: 'Misalignment', value: Math.abs(view.alignment) >= 25 ? 'ALARM' : Math.abs(view.alignment) >= 10 ? 'WARNING' : 'NORMAL', tone: Math.abs(view.alignment) >= 25 ? 'alarm' : Math.abs(view.alignment) >= 10 ? 'warn' : 'ok' },
+    { label: 'Overload', value: view.loadPercent >= 100 ? 'ALARM' : view.loadPercent >= 80 ? 'WARNING' : 'NORMAL', tone: view.loadPercent >= 100 ? 'alarm' : view.loadPercent >= 80 ? 'warn' : 'ok' },
+  ]
+
   const activeAlarm = useMemo(
     () => events.find((event) => event.active && !event.acknowledged && (event.severity === 'CRITICAL' || event.severity === 'WARNING')) || null,
     [events],
@@ -365,6 +372,12 @@ export default function App({ lang, setLang, onLogout }) {
               <Icon name="chevron" size={25}/>
             </div>
           </article>
+        </section>
+
+        <section className="ai-overview-panel">
+          <div className="ai-overview-head"><div><span>AI CONDITION MONITORING</span><h2>Conveyor Health</h2></div><div className="health-score"><strong>{beltHealth}%</strong><span>Belt Health</span></div></div>
+          <div className="detection-grid">{detectionStates.map((item) => <div className={`detection-card ${item.tone}`} key={item.label}><span className={`event-dot ${item.tone}`}/><div><small>{item.label}</small><strong>{item.value}</strong></div></div>)}</div>
+          <div className="incident-timeline"><div className="timeline-title"><strong>Incident Timeline</strong><span>Recent AI detections</span></div><div className="timeline-track">{events.slice(0,5).reverse().map((event, index) => <button key={event.id} className={`timeline-event ${eventTone(event.severity)}`} style={{left:`${8 + index * 21}%`}} title={eventTitle(event,t)} onClick={() => event.evidence_status === 'READY' && openEvidence(event, event.clip_object ? 'clip' : 'snapshot')}><i/><span>{eventTime(event.created_at, lang)}</span></button>)}</div></div>
         </section>
 
         <section className="events-panel">
