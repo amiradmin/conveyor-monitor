@@ -9,7 +9,7 @@ import requests
 from django.conf import settings
 from django.db import IntegrityError, close_old_connections, transaction
 from django.shortcuts import get_object_or_404
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from minio import Minio
 from rest_framework import status as http_status
@@ -327,7 +327,11 @@ def _source_matches(conveyor, payload):
 
 def _refresh_from_vision(conveyor: Conveyor) -> TelemetrySample | None:
     try:
-        response = requests.get(f"{settings.VISION_SERVICE_URL}/conveyors/{conveyor.code}/live", timeout=2.5)
+        response = requests.get(
+            f"{settings.VISION_SERVICE_URL}/conveyors/{conveyor.code}/live",
+            params={"conveyor_id": conveyor.code},
+            timeout=2.5,
+        )
         response.raise_for_status()
         payload = response.json()
         if payload.get("conveyor_id") != conveyor.code or not _source_matches(conveyor, payload):
@@ -507,6 +511,22 @@ def vision_sources(request):
 @api_view(["GET"])
 def conveyor_status(request, code: str = "CV-01"):
     return _status_response(code)
+
+
+@api_view(["GET"])
+def conveyor_frame(request, code: str):
+    if code not in {"CV-01", "CV-02"}:
+        return Response({"detail": "Unknown conveyor"}, status=http_status.HTTP_404_NOT_FOUND)
+    try:
+        response = requests.get(
+            f"{settings.VISION_SERVICE_URL}/frame.jpg",
+            params={"conveyor_id": code},
+            timeout=2.5,
+        )
+        response.raise_for_status()
+        return HttpResponse(response.content, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    except requests.RequestException:
+        return Response({"detail": "Camera frame unavailable"}, status=http_status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(["GET"])
