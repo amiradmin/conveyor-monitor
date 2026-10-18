@@ -1,0 +1,8 @@
+path: .
+train: images/train
+val: images/val
+names:
+  0: material
+  1: overload_material
+  2: tear
+  3: material_spill

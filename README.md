@@ -96,7 +96,17 @@ Open:
 - Vision service: http://localhost:8010/health
 - Vision live telemetry: http://localhost:8010/live
 - PLC gateway: http://localhost:8020/health
-- MinIO console: http://localhost:9001
+
+The default stack runs vision analysis on the CPU and stores alarm snapshots and
+pre-event clips in the persistent local `evidence_data` volume. This keeps the
+demo fully runnable on computers without an NVIDIA GPU or object storage.
+
+To additionally build and run the optional MinIO object-store service and its
+console, use:
+
+```bash
+docker compose --profile object-storage up --build -d
+```
 
 ## Development roadmap
 
@@ -110,3 +120,24 @@ Open:
 8. Controlled-stop rule engine and operator acknowledgement.
 9. Alarm snapshots + pre-event clips in MinIO — operational for CV-01.
 10. Production hardening, durable background jobs, observability, backups, HTTPS and site deployment.
+
+### Managing multiple video sources
+
+After login, the operator can open **All conveyors**, select a belt for its own
+monitoring page, or use **Manage cameras** to register and edit belts. Each belt
+has one primary video source: either a bundled sample or an uploaded MP4/WebM
+(up to 500 MB). Monitoring can be enabled or paused independently for each belt.
+Routes use URL hashes, so direct links and browser back/forward work without
+additional web-server routing rules.
+
+Uploaded videos are stored in the `video_sources` Docker volume and served to
+signed-in operators. The vision service reads that shared volume and checks the
+registered-source catalog every five seconds. Each belt has an independent video
+processor, telemetry stream, and evidence buffer. A source revision prevents an
+old processor from publishing readings after a video or belt-width change.
+Migrations run when the backend container starts; existing CV-01 installations
+continue using `conveyor_1.mp4` until their source is changed.
+
+Video processing still uses the demonstration calibration documented in
+[the detection notes](services/vision-service/DETECTION.md). Registering another
+video does not calibrate its geometry automatically.

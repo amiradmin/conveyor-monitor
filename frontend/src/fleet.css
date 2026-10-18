@@ -1,0 +1,67 @@
+.operations-ui .fleet-sidebar .sidebar-brand {text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px}
+.operations-ui .fleet-sidebar .nav-item {text-decoration:none}
+.operations-ui .fleet-sidebar-belts {margin:32px 18px;color:#80939e;overflow:auto;max-height:calc(100vh - 280px)}
+.operations-ui .fleet-sidebar-belts > span {font-size:11px;display:block;margin-bottom:12px}
+.operations-ui .fleet-sidebar-belts a {display:flex;align-items:center;gap:10px;color:#93a9b7;text-decoration:none;padding:12px 8px;border-radius:6px;font-size:13px}
+.operations-ui .fleet-sidebar-belts a.selected {background:#16342e;color:#63d7b4}
+.operations-ui .fleet-sidebar-belts small {margin-inline-start:auto;color:#f1b664}
+.operations-ui .belt-dot {width:6px;height:6px;border-radius:50%;background:#718492}.operations-ui .belt-dot.running {background:#51c6a0}
+.operations-ui .fleet-page-heading {display:flex;align-items:center;justify-content:space-between;gap:20px;margin:24px 0}
+.operations-ui .fleet-page-heading h2 {font-size:24px;margin:0 0 8px;color:#e1ebf0}
+.operations-ui .fleet-page-heading p,.operations-ui .form-help {font-size:13px;color:#90a5b4;line-height:1.8;margin:0}
+.operations-ui .fleet-primary,.operations-ui .fleet-secondary {display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;min-height:40px;text-decoration:none;border-radius:6px;border:1px solid #2d4a54;font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.operations-ui .fleet-primary {background:#42c5a0;border-color:#42c5a0;color:#082c25;font-weight:600}.operations-ui .fleet-secondary {background:#10232e;color:#cfdee7}
+.operations-ui button:disabled {opacity:.55;cursor:wait}
+.operations-ui .fleet-totals {display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.operations-ui .fleet-totals article {background:#10222d;border:1px solid #25404e;border-radius:8px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.operations-ui .fleet-totals span {font-size:12px;color:#9cb0bf}.operations-ui .fleet-totals strong {font-size:28px;color:#e3edf1}
+.operations-ui .fleet-toolbar {display:flex;justify-content:space-between;gap:16px;margin-bottom:20px}
+.operations-ui .fleet-toolbar input,.operations-ui .conveyor-form input:not([type=radio]),.operations-ui .conveyor-form select,.operations-ui .conveyor-select {background:#0b1e29;border:1px solid #2d4656;border-radius:5px;color:#deebf1;padding:11px 12px;font:inherit;font-size:13px;min-width:0}
+.operations-ui .fleet-toolbar input {width:320px;max-width:100%}
+.operations-ui .conveyor-select {max-width:220px}
+.operations-ui .belt-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.operations-ui .belt-card {background:#10222d;border:1px solid #294350;border-radius:10px;overflow:hidden}
+.operations-ui .belt-card.critical {border-color:#8f4949}
+.operations-ui .belt-preview {display:block;position:relative;aspect-ratio:16/9;background:#07121b;overflow:hidden}
+.operations-ui .belt-preview video.camera-video {position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:1}
+.operations-ui .preview-id {position:absolute;top:12px;left:12px;background:#0b1d29dc;color:white;padding:6px 10px;border-radius:4px;font-size:12px}
+.operations-ui .belt-card-body {padding:18px}
+.operations-ui .belt-card-heading {display:flex;justify-content:space-between;align-items:center;gap:12px}
+.operations-ui .belt-card-heading h3 {font-size:16px;margin:0 0 6px;color:#e2edf2}.operations-ui .belt-card-heading span:not(.belt-state) {font-size:12px;color:#849daa}
+.operations-ui .belt-state {font-size:11px;color:#9dafbd;background:#1c303c;padding:6px 9px;border-radius:4px;white-space:nowrap}
+.operations-ui .belt-state.running {color:#68d7b6;background:#183c32}.operations-ui .belt-state.stale,.operations-ui .belt-state.unavailable {color:#e1b777;background:#3a3025}
+.operations-ui .belt-metrics {display:grid;grid-template-columns:repeat(3,1fr);padding:18px 0;gap:16px}
+.operations-ui .belt-metrics div {display:flex;flex-direction:column;gap:7px;color:#e1edf2}.operations-ui .belt-metrics span {color:#91a6b5;font-size:11px}.operations-ui .belt-metrics strong {font-size:23px;direction:ltr;text-align:start}
+.operations-ui .belt-metrics .needs-attention strong {color:#f2b773}
+.operations-ui .belt-open {display:flex;justify-content:space-between;align-items:center;text-decoration:none;border-top:1px solid #29404e;padding-top:14px;color:#64d7b5;font-size:13px}
+.operations-ui .fleet-empty {padding:60px 24px;text-align:center;color:#9ab0c0;line-height:1.9}.operations-ui .fleet-empty h3 {color:#dce7ee}.operations-ui .fleet-empty a {color:#64d7b5}
+.operations-ui .camera-list {display:flex;flex-direction:column;gap:12px}
+.operations-ui .camera-list article {display:flex;align-items:center;gap:18px;padding:20px;background:#10222d;border:1px solid #294350;border-radius:8px}
+.operations-ui .camera-list-icon {color:#69c3af;background:#173a34;padding:12px;border-radius:8px;display:flex}
+.operations-ui .camera-list-name {flex:1;min-width:0}.operations-ui .camera-list-name h3 {font-size:15px;color:#dce8ed;margin:0 0 8px}.operations-ui .camera-list-name p {font-size:12px;color:#91a7b6;margin:0;overflow-wrap:anywhere}
+.operations-ui .camera-list-actions {display:flex;gap:8px}
+.operations-ui .conveyor-form {background:#10222d;border:1px solid #294350;border-radius:10px;padding:28px;margin:24px auto;max-width:780px}
+.operations-ui .conveyor-form h2 {font-size:22px;margin:0 0 26px;color:#e2edf2}
+.operations-ui .form-fields {display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.operations-ui .conveyor-form label {display:flex;flex-direction:column;gap:10px;font-size:13px;color:#bbced8}
+.operations-ui .conveyor-form fieldset {margin:26px 0;padding:20px;border:1px solid #294350;border-radius:6px;color:#b7ccd7}
+.operations-ui .conveyor-form legend {padding:0 8px;font-size:13px}
+.operations-ui .source-options {display:flex;flex-wrap:wrap;gap:20px;margin-bottom:20px}.operations-ui .source-options label {flex-direction:row;align-items:center;gap:8px}.operations-ui input[type=radio] {accent-color:#42c5a0}
+.operations-ui .form-help {margin-top:12px}.operations-ui .form-actions {display:flex;gap:10px}.operations-ui .video-upload input {width:100%}
+.operations-ui .video-status {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#091823;color:#9bb3c3;font-size:13px;z-index:1;pointer-events:none}
+.operations-ui .camera-video {z-index:0}.operations-ui .live-badge {pointer-events:none}
+.operations-ui .camera-scene:has(.video-status) .live-badge {display:none}
+.operations-ui .conveyor-form input[readonly] {opacity:.6}
+@media(min-width:1600px){.operations-ui .belt-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1200px){.operations-ui .fleet-sidebar-belts{display:none}.operations-ui .conveyor-select{max-width:180px}}
+@media(max-width:980px){.operations-ui .fleet-totals{grid-template-columns:repeat(2,1fr)}.operations-ui .camera-list article{flex-wrap:wrap}.operations-ui .camera-list-actions{margin-inline-start:auto}.operations-ui .title-block h1{font-size:17px}}
+@media(max-width:700px){.operations-ui .fleet-sidebar .nav-list{display:flex;width:100%;justify-content:space-around}.operations-ui .fleet-sidebar .nav-item{width:50%;display:flex;flex-direction:column;gap:5px;padding:8px}.operations-ui .fleet-sidebar .nav-item span{display:block;font-size:11px}.operations-ui .fleet-page-heading{align-items:flex-start;flex-direction:column}.operations-ui .fleet-page-heading h2{font-size:21px}.operations-ui .belt-grid{grid-template-columns:1fr}.operations-ui .fleet-toolbar{flex-direction:column}.operations-ui .fleet-toolbar input{width:100%}.operations-ui .fleet-totals article{padding:12px}.operations-ui .fleet-totals strong{font-size:23px}.operations-ui .form-fields{grid-template-columns:1fr}.operations-ui .conveyor-form{padding:18px}.operations-ui .camera-list article{padding:16px;gap:12px}.operations-ui .camera-list-icon{display:none}.operations-ui .camera-list-actions{width:100%}.operations-ui .camera-list-actions>*{flex:1}.operations-ui .conveyor-select{max-width:170px}.operations-ui .fleet-dashboard .topbar{gap:12px}}
+.operations-ui .fleet-sidebar .sidebar-brand::before {display:none}
+.operations-ui .sidebar-brand-icon {width:34px;flex:0 0 34px;display:flex}
+.operations-ui .fleet-toolbar .event-filters {display:flex;gap:4px;background:#10222d;padding:4px;border:1px solid #2d4656;border-radius:6px}
+.operations-ui .fleet-toolbar .event-filters button {background:transparent;color:#9aafbd;font:inherit;font-size:12px;border:0;padding:7px 12px;border-radius:4px;cursor:pointer}
+.operations-ui .fleet-toolbar .event-filters button[aria-pressed=true] {background:#274053;color:#e7f1f6}
+.operations-ui .uploaded-preview {flex-direction:column;gap:14px;padding:30px;text-align:center;overflow-wrap:anywhere;background:radial-gradient(circle,#1a3446,#091823)}
+.operations-ui .uploaded-preview span {font-size:32px;color:#67c8af}
+.operations-ui :is(a,button,input,select):focus-visible {outline:2px solid #83b9ff;outline-offset:3px}
+@media(max-width:700px){.operations-ui .fleet-sidebar .sidebar-brand{display:none}.operations-ui .topbar .language-switcher{display:flex}.operations-ui .fleet-sidebar nav.nav-list{flex:1;width:100%}}

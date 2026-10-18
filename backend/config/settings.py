@@ -86,6 +86,7 @@ SIMPLE_JWT = {
 }
 
 VISION_SERVICE_URL = os.getenv("VISION_SERVICE_URL", "http://vision-service:8010")
+VISION_PUBLIC_URL = os.getenv("VISION_PUBLIC_URL", "http://localhost:8010").rstrip("/")
 PLC_GATEWAY_URL = os.getenv("PLC_GATEWAY_URL", "http://plc-gateway:8020")
 PLC_WRITE_ENABLED = os.getenv("PLC_WRITE_ENABLED", "false").lower() == "true"
 INTERNAL_SERVICE_TOKEN = os.getenv("INTERNAL_SERVICE_TOKEN", "dev-internal-token")
@@ -120,3 +121,6 @@ TEAR_RECOVERY_PROBABILITY = float(os.getenv("TEAR_RECOVERY_PROBABILITY", "0.25")
 OVERLOAD_WARNING_PERCENT = float(os.getenv("OVERLOAD_WARNING_PERCENT", "80"))
 OVERLOAD_CRITICAL_PERCENT = float(os.getenv("OVERLOAD_CRITICAL_PERCENT", "100"))
 OVERLOAD_RECOVERY_PERCENT = float(os.getenv("OVERLOAD_RECOVERY_PERCENT", "75"))
+
+MEDIA_ROOT = BASE_DIR / "media"
+DATA_UPLOAD_MAX_MEMORY_SIZE = 512 * 1024 * 1024

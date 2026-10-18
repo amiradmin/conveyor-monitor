@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
+import OperatorApp from './OperatorApp'
 import Login from './Login'
 import { clearTokens, hasSession } from './auth'
 import { RTL_LANGUAGES } from './i18n'
-import { mountSidebarEnhancer } from './sidebarEnhancer'
 import './styles.css'
 import './auth.css'
 import './liveVideo.css'
@@ -29,21 +28,13 @@ function Root() {
     document.documentElement.dir = RTL_LANGUAGES.has(lang) ? 'rtl' : 'ltr'
   }, [lang])
 
-  useEffect(() => {
-    if (!authenticated) return undefined
-    const unmountSidebar = mountSidebarEnhancer()
-    return () => {
-      unmountSidebar?.()
-    }
-  }, [authenticated])
-
   const logout = () => {
     clearTokens()
     setAuthenticated(false)
   }
 
   return authenticated
-    ? <App lang={lang} setLang={setLang} onLogout={logout} />
+    ? <OperatorApp lang={lang} setLang={setLang} onLogout={logout} />
     : <Login lang={lang} setLang={setLang} onAuthenticated={() => setAuthenticated(true)} />
 }
 

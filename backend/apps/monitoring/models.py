@@ -23,6 +23,9 @@ class Camera(models.Model):
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=16, choices=Role.choices)
     rtsp_url = models.CharField(max_length=500, blank=True)
+    video_source = models.CharField(max_length=150, blank=True)
+    video_file = models.FileField(upload_to="videos/", blank=True)
+    source_changed_at = models.DateTimeField(null=True, blank=True)
     active = models.BooleanField(default=True)
 
 
@@ -35,6 +38,8 @@ class TelemetrySample(models.Model):
     tear_probability = models.FloatField(null=True, blank=True)
     confidence = models.FloatField(null=True, blank=True)
     vision_details = models.JSONField(default=dict, blank=True)
+    damage_regions = models.JSONField(default=list, blank=True)
+    source_position_seconds = models.FloatField(null=True, blank=True)
 
 
 class Alarm(models.Model):

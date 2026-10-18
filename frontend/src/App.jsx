@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { API, authFetch } from './auth'
+import BeltForecast from './BeltForecast'
+import CameraVideo from './CameraVideo'
+import { selectActiveAlarm } from './liveAlerts'
 import { getTranslation, LANGUAGE_OPTIONS, RTL_LANGUAGES } from './i18n'
+import { getDashboardCopy } from './dashboardCopy'
+import './dashboard.css'
 
-function Icon({ name, size = 26, strokeWidth = 1.8 }) {
+export function Icon({ name, size = 26, strokeWidth = 1.8 }) {
   const common = {
     width: size,
     height: size,
@@ -70,10 +75,10 @@ function Sidebar({ t }) {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand"><Icon name="conveyor" size={38} /></div>
+      <div className="sidebar-brand"><Icon name="conveyor" size={38} /><div className="sidebar-brand-copy"><strong>CONVEYOR</strong><span>AI MONITOR</span></div></div>
       <nav>
         {items.map(([icon, label, active]) => (
-          <button className={`nav-item ${active ? 'active' : ''}`} key={label} type="button">
+          <button className={`nav-item ${active ? 'active' : ''}`} key={icon} type="button">
             <Icon name={icon} size={24} />
             <span>{label}</span>
           </button>
@@ -95,8 +100,6 @@ function eventTitle(event, t) {
     ALIGNMENT_CRITICAL: t.alarmAlignmentCritical,
     TEAR_WARNING: t.alarmTearWarning,
     TEAR_CRITICAL: t.alarmTearCritical,
-    BELT_ANOMALY_WARNING: t.anomalyWarning,
-    BELT_ANOMALY_CRITICAL: t.anomalyCritical,
     OVERLOAD_WARNING: t.alarmOverloadWarning,
     OVERLOAD_CRITICAL: t.alarmOverloadCritical,
   }
@@ -146,54 +149,77 @@ function EvidenceViewer({ viewer, onClose, t }) {
   )
 }
 
-export default function App({ lang, setLang, onLogout }) {
+export function DamageOverlay({ data, lang, dimensions }) {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const regions = Array.isArray(data?.damage_regions) ? data.damage_regions : []
+  const fresh = data?.telemetry_ts && now - Date.parse(data.telemetry_ts) < 10000
+  const visible = fresh ? regions : []
+  const position = data?.source_position_seconds
+  useEffect(() => {
+    const video = document.querySelector('.camera-video')
+    if (!video) return
+    if (visible.length && Number.isFinite(position)) {
+      // Show the exact source frame measured by vision while the marker is visible.
+      video.pause()
+      video.currentTime = position
+    } else {
+      video.play().catch(() => {})
+    }
+  }, [data, fresh])
+  if (!visible.length) return null
+  const frameHeight = dimensions?.width ? 1000 * dimensions.height / dimensions.width : 562.5
+  const label = lang === 'fa' ? 'خرابی لبهٔ تسمه' : lang === 'ar' ? 'تلف حافة الحزام' : 'Belt edge damage'
+  const critical = data?.tear_status === 'CRITICAL'
+  return <svg className={`damage-overlay ${critical ? 'critical' : 'warning'}`} viewBox={`0 0 1000 ${frameHeight}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={label}>
+    <defs><marker id="damage-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="currentColor" /></marker></defs>
+    {visible.map((region, index) => {
+      const x = region.x * 1000, y = region.y * frameHeight
+      const width = region.width * 1000, height = region.height * frameHeight
+      const right = x + width, middle = y + height / 2
+      const onLeft = region.x < 0.5
+      const end = onLeft ? right + 6 : x - 6
+      const start = onLeft ? Math.min(830, right + 150) : Math.max(170, x - 150)
+      return <g key={index}>
+        <rect x={x} y={y} width={width} height={height} rx="4" className="damage-box" />
+        <path d={`M${start},${middle - 36} L${end},${middle}`} className="damage-pointer" markerEnd="url(#damage-arrow)" />
+        <rect x={start - 105} y={middle - 73} width="210" height="30" rx="5" className="damage-label-bg" />
+        <text x={start} y={middle - 53} textAnchor="middle" className="damage-label">{label}</text>
+      </g>
+    })}
+  </svg>
+}
+
+export default function App({ lang, setLang, onLogout, conveyor = {code: "CV-01", video_source: "conveyor_1.mp4"}, conveyors = [], sidebar }) {
+  const code = conveyor.code
+  const encodedCode = encodeURIComponent(code)
   const t = getTranslation(lang)
+  const c = getDashboardCopy(lang)
   const rtl = RTL_LANGUAGES.has(lang)
   const [data, setData] = useState(null)
+  const [dimensions, setDimensions] = useState(null)
   const [events, setEvents] = useState([])
+  const [alarmEvents, setAlarmEvents] = useState([])
+  const [actionError, setActionError] = useState('')
   const [error, setError] = useState('')
   const [acknowledgingId, setAcknowledgingId] = useState(null)
   const [evidenceLoadingId, setEvidenceLoadingId] = useState(null)
   const [evidenceViewer, setEvidenceViewer] = useState(null)
-  const [conveyor, setConveyor] = useState('CV-01')
-  const [frameUrl, setFrameUrl] = useState('')
-  const [frameError, setFrameError] = useState(false)
+  const [eventFilter, setEventFilter] = useState('all')
+  const [expandedEvents, setExpandedEvents] = useState(false)
+  const [now, setNow] = useState(Date.now)
 
   useEffect(() => {
-    if (conveyor !== 'CV-02') return undefined
-    let mounted = true
-    let objectUrl = ''
-    let busy = false
-    const controller = new AbortController()
-    const loadFrame = async () => {
-      if (busy) return
-      busy = true
-      try {
-        const response = await authFetch(`${API}/conveyors/${conveyor}/frame/`, { signal: controller.signal })
-        if (!response.ok) throw new Error('Frame unavailable')
-        const blob = await response.blob()
-        if (!mounted) return
-        const next = URL.createObjectURL(blob)
-        if (objectUrl) URL.revokeObjectURL(objectUrl)
-        objectUrl = next
-        setFrameUrl(next)
-        setFrameError(false)
-      } catch (e) {
-        if (mounted) { setFrameError(true); setFrameUrl('') }
-      } finally { busy = false }
-    }
-    loadFrame()
-    const timer = window.setInterval(loadFrame, 750)
-    return () => {
-      mounted = false
-      controller.abort()
-      window.clearInterval(timer)
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [conveyor])
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     let mounted = true
+    let inFlight = false
 
     const parseResponse = async (response) => {
       if (response.status === 401) {
@@ -205,33 +231,39 @@ export default function App({ lang, setLang, onLogout }) {
     }
 
     const load = async () => {
+      if (inFlight) return
+      inFlight = true
       try {
-        const [statusResponse, eventsResponse] = await Promise.all([
-          authFetch(`${API}/conveyors/${conveyor}/status/`),
-          authFetch(`${API}/events/?conveyor=${conveyor}&limit=5`),
+        const [statusResponse, eventsResponse, alarmsResponse] = await Promise.all([
+          authFetch(`${API}/conveyors/${encodedCode}/status/`),
+          authFetch(`${API}/events/?conveyor=${encodedCode}&limit=100`),
+          authFetch(`${API}/events/?conveyor=${encodedCode}&acknowledged=false&active=true&limit=100`),
         ])
-        const [statusPayload, eventPayload] = await Promise.all([
-          parseResponse(statusResponse),
+        const [statusPayload, eventPayload, alarmsPayload] = await Promise.all([
+          statusResponse.status === 503 ? Promise.resolve(null) : parseResponse(statusResponse),
           parseResponse(eventsResponse),
+          parseResponse(alarmsResponse),
         ])
         if (!mounted) return
-        setData(statusPayload)
+        setData(statusPayload?.telemetry_ts ? statusPayload : null)
         setEvents(Array.isArray(eventPayload) ? eventPayload : [])
+        setAlarmEvents(Array.isArray(alarmsPayload) ? alarmsPayload : [])
         setError('')
       } catch (e) {
         if (mounted && e.message !== 'AUTH') setError(e.message)
-      }
+      } finally { inFlight = false }
     }
 
     load()
-    const timer = window.setInterval(load, 5000)
+    const timer = window.setInterval(load, 1000)
     return () => {
       mounted = false
       window.clearInterval(timer)
     }
-  }, [onLogout, conveyor])
+  }, [onLogout, encodedCode])
 
   async function acknowledgeEvent(eventId) {
+    setActionError('')
     setAcknowledgingId(eventId)
     try {
       const response = await authFetch(`${API}/events/${eventId}/acknowledge/`, { method: 'POST' })
@@ -242,8 +274,9 @@ export default function App({ lang, setLang, onLogout }) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const updated = await response.json()
       setEvents((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setAlarmEvents((current) => current.filter((item) => item.id !== updated.id))
     } catch (e) {
-      setError(e.message)
+      setActionError(e.message)
     } finally {
       setAcknowledgingId(null)
     }
@@ -251,7 +284,7 @@ export default function App({ lang, setLang, onLogout }) {
 
   async function openEvidence(event, preferred = 'snapshot') {
     if (event.evidence_status !== 'READY') {
-      setError(event.evidence_status === 'PENDING' ? t.evidencePending : t.evidenceUnavailable)
+      setActionError(event.evidence_status === 'PENDING' ? t.evidencePending : t.evidenceUnavailable)
       return
     }
     setEvidenceLoadingId(event.id)
@@ -272,9 +305,9 @@ export default function App({ lang, setLang, onLogout }) {
         active: preferred,
         setActive: (active) => setEvidenceViewer((current) => current ? { ...current, active } : current),
       })
-      setError('')
+      setActionError('')
     } catch (e) {
-      setError(e.message)
+      setActionError(e.message)
     } finally {
       setEvidenceLoadingId(null)
     }
@@ -314,6 +347,8 @@ export default function App({ lang, setLang, onLogout }) {
       overloadBadgeClass: overloadTone === 'critical' ? 'overload' : overloadTone === 'warning' ? 'high' : 'normal',
       overloadTone,
       overloadValueClass,
+      alignmentTone: String(data?.alignment_status || "NORMAL").toLowerCase(),
+      tearTone: String(data?.tear_status || "NORMAL").toLowerCase(),
       tearRisk,
       confidence,
       plcRunning,
@@ -321,26 +356,38 @@ export default function App({ lang, setLang, onLogout }) {
   }, [data, t])
 
   const activeAlarm = useMemo(
-    () => events.find((event) => event.active && !event.acknowledged && (event.severity === 'CRITICAL' || event.severity === 'WARNING')) || null,
-    [events],
+    () => selectActiveAlarm(alarmEvents),
+    [alarmEvents],
   )
 
+  const pendingEvents = alarmEvents.filter((event) => event.active && !event.acknowledged)
+  const filteredEvents = eventFilter === 'pending' ? pendingEvents : events
+  const visibleEvents = expandedEvents ? filteredEvents : filteredEvents.slice(0, 5)
+  const sampleTime = Date.parse(data?.telemetry_ts)
+  const stale = Boolean(data && (data.state === 'STALE' || !Number.isFinite(sampleTime) || now - sampleTime > 10000))
+  const connected = Boolean(data && !error && !stale)
+  const systemLabel = error ? c.disconnected : !data ? c.waiting : stale ? c.stale : t.systemOnline
+  const conditionLabel = activeAlarm ? c.attention : c.monitoring
+  const metricValue = (value) => data ? value : '—'
+  const measurementTone = (tone) => connected ? tone : 'unavailable'
+
+  function reviewPendingAlerts() {
+    setEventFilter('pending')
+    setExpandedEvents(true)
+    document.getElementById('dashboard-events')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
-    <div className={`app-shell ${rtl ? 'rtl-ui' : ''}`}>
-      <Sidebar t={t} />
+    <div className={`app-shell operations-ui ${rtl ? 'rtl-ui' : ''}`}>
+
+      {sidebar || <Sidebar t={t} />}
       <main className="dashboard">
         <header className="topbar">
           <div className="title-block">
             <div className="brand-icon"><Icon name="conveyor" size={44} /></div>
             <h1>{t.appName}</h1>
             <span className="title-divider" />
-            <select className="conveyor-selector" aria-label={t.selectConveyor} value={conveyor} onChange={(event) => {
-              setConveyor(event.target.value)
-              setData(null); setEvents([]); setEvidenceViewer(null); setError(''); setFrameUrl(''); setFrameError(false)
-            }}>
-              <option value="CV-01">CV-01</option>
-              <option value="CV-02">CV-02</option>
-            </select>
+            <select className="conveyor-select" aria-label={lang === "fa" ? "انتخاب تسمه" : "Select conveyor"} value={code} onChange={event => { window.location.hash = `/conveyors/${encodeURIComponent(event.target.value)}` }}>{(conveyors.length ? conveyors : [conveyor]).map(item => <option key={item.code} value={item.code}>{item.code} · {item.name || item.code}</option>)}</select>
           </div>
           <div className="topbar-actions">
             <div className="language-switcher header-language-select">
@@ -356,37 +403,55 @@ export default function App({ lang, setLang, onLogout }) {
                 </span>
               </label>
             </div>
-            <div className="system-state">
+            <div className={`system-state ${connected ? 'is-connected' : 'is-unavailable'}`}>
               <span className="state-dot" />
-              <div><strong>{t.systemOnline}</strong><span>{error ? t.reconnecting : t.allNominal}</span></div>
+              <div><strong>{systemLabel}</strong><span>{connected ? conditionLabel : c.monitoring}</span></div>
             </div>
             <button type="button" className="logout-button" onClick={onLogout}>{t.logout}</button>
           </div>
         </header>
 
+        {!conveyor.active && <div className="connection-notice" role="status">{lang === "fa" ? "پایش این تسمه غیرفعال است" : lang === "ar" ? "مراقبة هذا السير معطّلة" : "Monitoring is paused for this conveyor"}</div>}
+
+        {(error || stale) && <div className="connection-notice" role="status"><strong>{systemLabel}</strong><span>{error ? c.retryDetail : c.staleDetail}</span></div>}
+
+        {actionError && <div className="action-notice" role="alert"><span>{[t.evidencePending, t.evidenceUnavailable].includes(actionError) ? actionError : c.actionFailed}</span><button type="button" onClick={() => setActionError('')}>{t.close}</button></div>}
+
+        <section className="summary-grid" aria-label={c.overview}>
+          <article className="summary-card">
+            <div className="summary-label"><span>{t.beltSpeed}</span><Icon name="speed" size={20} /></div>
+            <div className="summary-value"><bdi>{metricValue(view.speed.toFixed(2))}</bdi><small>m/s</small></div>
+            <span className="summary-caption">{data ? c.speedDetail : c.noData}</span>
+          </article>
+          <article className="summary-card">
+            <div className="summary-label"><span>{t.materialFlow}</span><Icon name="material" size={20} /></div>
+            <div className="summary-value"><bdi>{metricValue(Math.round(view.materialFlow))}</bdi><small>t/h</small></div>
+            <span className="summary-caption">{data ? c.flowDetail : c.noData}</span>
+          </article>
+          <article className={`summary-card ${connected ? view.overloadTone : 'unavailable'}`}>
+            <div className="summary-label"><span>{t.overload}</span><Icon name="load" size={20} /></div>
+            <div className="summary-value"><bdi>{metricValue(view.loadPercent)}</bdi><small>%</small>{connected && <span className={`metric-badge ${view.overloadBadgeClass}`}>{view.overloadState}</span>}</div>
+            <span className="summary-caption">{data ? c.capacity : c.noData}</span>
+          </article>
+          <article className={`summary-card alert-summary ${activeAlarm ? (activeAlarm.severity === 'CRITICAL' ? 'critical' : 'warning') : ''}`}>
+            <div className="summary-label"><span>{c.activeAlerts}</span><Icon name="events" size={20} /></div>
+            <div className="summary-value"><bdi>{data ? pendingEvents.length : '—'}</bdi><button className="summary-link" type="button" onClick={reviewPendingAlerts}>{c.reviewAlerts}<Icon name="chevron" size={15} /></button></div>
+            <span className="summary-caption">{c.recentWindow}</span>
+          </article>
+        </section>
+
         <section className="dashboard-grid">
-          <article className="vision-panel">
+          <article className="vision-panel" aria-labelledby="vision-title">
+            <div className="panel-heading"><div><span className="section-eyebrow"><bdi>{code}</bdi> / VISION</span><h2 id="vision-title">{t.liveVision}</h2></div><span className="source-chip">{c.localVideo}</span></div>
             <div className="camera-scene">
-              {conveyor === 'CV-01' ? (
-                <video key={conveyor} className="camera-video" src="/conveyor_1.mp4" autoPlay loop muted playsInline onError={() => setFrameError(true)} />
-              ) : frameUrl && !frameError ? (
-                <img className="camera-video cv02-frame" src={frameUrl} alt={t.beltAnomaly} />
-              ) : null}
-              {(frameError || (conveyor === 'CV-02' && !frameUrl)) && <div className="camera-unavailable">{t.cameraUnavailable}</div>}
-              <div className="scene-rails scene-rails-left" />
-              <div className="scene-rails scene-rails-right" />
-              <div className="scene-belt">
-                <div className="ore ore-1"/><div className="ore ore-2"/><div className="ore ore-3"/><div className="ore ore-4"/><div className="ore ore-5"/><div className="ore ore-6"/><div className="ore ore-7"/><div className="ore ore-8"/><div className="ore ore-9"/><div className="ore ore-10"/><div className="ore ore-11"/><div className="ore ore-12"/><div className="ore ore-13"/><div className="ore ore-14"/><div className="ore ore-15"/>
-              </div>
-              <div className="lane-line left"/><div className="lane-line right"/><div className="center-guide" />
-              <div className="offset-guide"><i/><i/><span>{t.offset}<strong>{view.alignment} mm</strong></span></div>
+              <CameraVideo conveyor={conveyor} lang={lang} onDimensions={setDimensions} />
+              <DamageOverlay data={data} lang={lang} dimensions={dimensions} />
               <div className="live-badge">
-                <div><span className="state-dot small"/> <strong>{t.liveVision}</strong></div>
-              <small>{conveyor} · {t.recordedDemo}</small>
+                <div><strong>{code}</strong></div>
+                <small>{conveyor.camera_name || code}</small>
               </div>
-              {conveyor === 'CV-02' && <div className="detector-caption">{data?.vision_details?.detector_warming_up ? t.calibrating : t.beltAnomaly}</div>}
               {activeAlarm && (
-                <div className={`live-alarm-banner ${activeAlarm.severity === 'CRITICAL' ? 'critical' : 'warning'}`}>
+                <div role="status" className={`live-alarm-banner ${activeAlarm.severity === 'CRITICAL' ? 'critical' : 'warning'}`}>
                   <div className="live-alarm-copy">
                     <span>{t.liveAlarm}</span>
                     <strong>{eventTitle(activeAlarm, t)}</strong>
@@ -396,34 +461,33 @@ export default function App({ lang, setLang, onLogout }) {
                     {activeAlarm.evidence_status === 'READY' && activeAlarm.snapshot_object && (
                       <button type="button" disabled={evidenceLoadingId === activeAlarm.id} onClick={() => openEvidence(activeAlarm, 'snapshot')}>{t.snapshot}</button>
                     )}
-                    <button type="button" disabled={acknowledgingId === activeAlarm.id} onClick={() => acknowledgeEvent(activeAlarm.id)}>{t.acknowledge}</button>
+                    <button type="button" disabled={acknowledgingId === activeAlarm.id} onClick={() => acknowledgeEvent(activeAlarm.id)}>{c.acknowledge}</button>
                   </div>
                 </div>
               )}
             </div>
+            <div className="camera-footer"><span>{t.offset} <bdi>{metricValue(view.alignment)} mm</bdi></span><span>{c.updated} <bdi>{eventTime(data?.telemetry_ts, lang)}</bdi></span></div>
           </article>
 
-          <article className="telemetry-panel">
-            <MetricRow icon="speed" label={t.beltSpeed} value={view.speed.toFixed(2)} unit=" m/s"><Progress value={view.speed} min={0} max={4} /></MetricRow>
-            <MetricRow icon="alignment" label={t.alignment} value={view.alignment} unit=" mm"><Progress value={view.alignment} min={-50} max={50} marker /></MetricRow>
-            <MetricRow icon="material" label={t.materialFlow} value={Math.round(view.materialFlow)} unit=" t/h"><Progress value={view.materialFlow} min={0} max={800} /></MetricRow>
-            <MetricRow icon="load" label={t.overload} value={`${view.loadPercent}%`} valueClass={view.overloadValueClass} badge={view.overloadState} badgeClass={view.overloadBadgeClass}><Progress value={Math.min(view.loadPercent, 120)} min={0} max={120} tone={view.overloadTone} /></MetricRow>
-            <MetricRow icon="shield" label={conveyor === 'CV-02' ? t.beltAnomaly : t.tearRisk} value={`${view.tearRisk}%`} valueClass={view.tearRisk >= 65 ? 'critical-value' : view.tearRisk >= 35 ? 'warning-value' : 'good-value'}><Progress value={view.tearRisk} min={0} max={100} tone={view.tearRisk >= 65 ? 'critical' : view.tearRisk >= 35 ? 'warning' : 'normal'} /></MetricRow>
-            <MetricRow icon="brain" label={conveyor === 'CV-02' ? t.imageQuality : t.aiConfidence} value={`${view.confidence}%`}><Progress value={view.confidence} min={0} max={100} /></MetricRow>
+          <article className="telemetry-panel" aria-labelledby="condition-title" data-available={Boolean(data)}>
+            <div className="panel-heading"><div><span className="section-eyebrow">{c.metricsDetail}</span><h2 id="condition-title">{c.metrics}</h2></div></div>
+            <MetricRow icon="alignment" label={t.alignment} value={metricValue(view.alignment)} unit=" mm" valueClass={`${measurementTone(view.alignmentTone === "normal" ? "good" : view.alignmentTone)}-value`}><Progress value={view.alignment} min={-50} max={50} marker tone={measurementTone(view.alignmentTone)} /></MetricRow>
+            <MetricRow icon="shield" label={t.tearRisk} value={metricValue(`${view.tearRisk}%`)} valueClass={`${measurementTone(view.tearTone === "normal" ? "good" : view.tearTone)}-value`}><Progress value={view.tearRisk} min={0} max={100} tone={measurementTone(view.tearTone)} /></MetricRow>
+            <MetricRow icon="brain" label={t.aiConfidence} value={metricValue(`${view.confidence}%`)}><Progress value={view.confidence} min={0} max={100} tone={connected ? 'normal' : 'unavailable'} /></MetricRow>
             <div className="metric-row plc-row">
               <div className="metric-icon"><Icon name="plc" size={36}/></div>
-              <div className="metric-copy"><span className="metric-label">{t.plcReadOnly}</span><div className="plc-value">{view.plcRunning ? t.autoRunning : t.connected}</div></div>
-              <Icon name="chevron" size={25}/>
+              <div className="metric-copy"><span className="metric-label">{t.plcReadOnly}</span><div className={`plc-value ${connected ? '' : 'unavailable-value'}`}>{!connected ? '—' : view.plcRunning ? t.autoRunning : data?.plc_state || c.stopped}</div></div>
+              <span className="read-only-chip">{c.readOnly}</span>
             </div>
           </article>
         </section>
 
-        <section className="events-panel">
-          <div className="events-header"><h2>{t.recentEvents}</h2><button type="button">{t.viewAll} <Icon name="chevron" size={18}/></button></div>
+        <section className="events-panel" id="dashboard-events" aria-labelledby="events-title">
+          <div className="events-header"><div><h2 id="events-title">{t.recentEvents}</h2><span className="events-subtitle">{eventFilter === 'pending' ? c.recentWindow : c.eventDetail.replace('CV-01', code)}</span></div><div className="events-controls"><div className="event-filters" role="group" aria-label={t.events}><button type="button" aria-pressed={eventFilter === 'all'} onClick={() => setEventFilter('all')}>{c.allEvents}</button><button type="button" aria-pressed={eventFilter === 'pending'} onClick={() => setEventFilter('pending')}>{c.pending}<span>{data ? pendingEvents.length : '—'}</span></button></div>{filteredEvents.length > 5 && <button className="events-expand" type="button" onClick={() => setExpandedEvents(!expandedEvents)}>{expandedEvents ? c.showLess : t.viewAll}<Icon name="chevron" size={18}/></button>}</div></div>
           <div className="event-table live-events-table">
-            {events.length === 0 ? (
-              <div className="event-empty"><span className="event-dot ok"/>{t.noRecentEvents}</div>
-            ) : events.map((event) => (
+            {visibleEvents.length === 0 ? (
+              <div className="event-empty">{error ? c.disconnected : !data ? c.waiting : eventFilter === 'pending' ? c.noPending : t.noRecentEvents}</div>
+            ) : visibleEvents.map((event) => (
               <div className={`event-row live-event-row ${event.acknowledged && !event.active ? 'is-acknowledged' : ''}`} key={event.id}>
                 <time>{eventTime(event.created_at, lang)}</time>
                 <span className={`event-dot ${eventTone(event.severity)}`}/>
@@ -443,13 +507,15 @@ export default function App({ lang, setLang, onLogout }) {
                   {event.acknowledged ? (
                     <span className="event-acknowledged">{t.acknowledged}</span>
                   ) : (
-                    <button className="event-ack-button" type="button" disabled={acknowledgingId === event.id} onClick={() => acknowledgeEvent(event.id)}>{t.acknowledge}</button>
+                    <button className="event-ack-button" type="button" disabled={acknowledgingId === event.id} onClick={() => acknowledgeEvent(event.id)}>{c.acknowledge}</button>
                   )}
                 </div>
               </div>
             ))}
           </div>
         </section>
+
+        <BeltForecast lang={lang} />
       </main>
       <EvidenceViewer viewer={evidenceViewer} onClose={() => setEvidenceViewer(null)} t={t} />
     </div>

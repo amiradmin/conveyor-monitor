@@ -1,10 +1,12 @@
+import os
+
 from .models import FrameMetrics, VisionResult
 
 
-ALIGNMENT_WARNING_MM = 40.0
-ALIGNMENT_STOP_MM = 80.0
-TEAR_WARNING_PROBABILITY = 0.70
-TEAR_STOP_PROBABILITY = 0.95
+ALIGNMENT_WARNING_MM = float(os.getenv("ALIGNMENT_WARNING_MM", "25"))
+ALIGNMENT_STOP_MM = float(os.getenv("ALIGNMENT_CRITICAL_MM", "40"))
+TEAR_WARNING_PROBABILITY = float(os.getenv("TEAR_WARNING_PROBABILITY", "0.35"))
+TEAR_STOP_PROBABILITY = float(os.getenv("TEAR_CRITICAL_PROBABILITY", "0.65"))
 
 
 def analyze(metrics: FrameMetrics) -> VisionResult:
@@ -16,7 +18,7 @@ def analyze(metrics: FrameMetrics) -> VisionResult:
     else:
         alignment_status = "NORMAL"
 
-    if metrics.tear_probability >= TEAR_STOP_PROBABILITY:
+    if metrics.damage_regions or metrics.tear_probability >= TEAR_STOP_PROBABILITY:
         tear_status = "CRITICAL"
     elif metrics.tear_probability >= TEAR_WARNING_PROBABILITY:
         tear_status = "WARNING"

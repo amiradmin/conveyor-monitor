@@ -34,6 +34,21 @@ class MonitoringApiTests(TestCase):
             HTTP_X_INTERNAL_TOKEN=settings.INTERNAL_SERVICE_TOKEN,
         )
 
+    def test_damage_location_matches_alarm_and_clears_on_healthy_frame(self) -> None:
+        regions = [{"x": 0.17, "y": 0.25, "width": 0.10, "height": 0.33, "score": 0.87}]
+        response = self._ingest(tear_probability=0.40, damage_regions=regions, source_position_seconds=4.0)
+        self.assertEqual(response.status_code, 201)
+        status = self.client.get("/api/conveyors/CV-01/status/").data
+        self.assertEqual(status["damage_regions"], regions)
+        self.assertEqual(status["source_position_seconds"], 4.0)
+        self.assertEqual(status["tear_status"], "CRITICAL")
+        self.assertEqual(status["tear_probability"], 0.40)
+        self.assertTrue(Alarm.objects.filter(code="TEAR_CRITICAL", active=True).exists())
+        self._ingest(damage_regions=[], source_position_seconds=6.0)
+        status = self.client.get("/api/conveyors/CV-01/status/").data
+        self.assertEqual(status["damage_regions"], [])
+        self.assertFalse(Alarm.objects.filter(code="TEAR_CRITICAL", active=True).exists())
+
     def test_status_uses_fresh_persisted_telemetry(self) -> None:
         TelemetrySample.objects.create(
             conveyor=self.conveyor,
@@ -245,3 +260,83 @@ class MonitoringApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["snapshot_url"], "http://localhost:9000/snapshot-signed")
         self.assertEqual(response.data["clip_url"], "http://localhost:9000/clip-signed")
+
+
+@override_settings(EVIDENCE_CAPTURE_ENABLED=False)
+class FleetApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(get_user_model().objects.create_user(username="fleet-operator"))
+        self.first = Conveyor.objects.create(code="CV-01", name="First belt")
+        self.second = Conveyor.objects.create(code="CV-02", name="Second belt")
+
+    def test_fleet_status_and_events_are_independent(self):
+        TelemetrySample.objects.create(conveyor=self.first, speed_mps=1, volume_m3h=10)
+        TelemetrySample.objects.create(conveyor=self.second, speed_mps=3, volume_m3h=30)
+        Alarm.objects.create(conveyor=self.second, condition_key="tear", code="TEAR_CRITICAL", severity="CRITICAL", message="Second only", active=True)
+        fleet = {item["code"]: item for item in self.client.get("/api/conveyors/").data}
+        self.assertEqual(fleet["CV-01"]["status"]["speed_mps"], 1)
+        self.assertEqual(fleet["CV-02"]["status"]["speed_mps"], 3)
+        self.assertEqual(fleet["CV-01"]["pending_alarm_count"], 0)
+        self.assertEqual(fleet["CV-02"]["pending_alarm_count"], 1)
+        self.assertEqual(self.client.get("/api/events/?conveyor=CV-01").data, [])
+        self.assertEqual(len(self.client.get("/api/events/?conveyor=CV-02").data), 1)
+
+    def test_unknown_status_does_not_register_a_belt(self):
+        self.assertEqual(self.client.get("/api/conveyors/UNKNOWN/status/").status_code, 404)
+        self.assertFalse(Conveyor.objects.filter(code="UNKNOWN").exists())
+
+    @patch("apps.monitoring.views.requests.get")
+    def test_refresh_rejects_another_conveyors_video(self, get):
+        get.return_value.json.return_value = {"conveyor_id": "CV-01", "belt_speed_mps": 9}
+        response = self.client.get("/api/conveyors/CV-02/status/")
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(self.second.samples.exists())
+        self.assertTrue(get.call_args.args[0].endswith("/conveyors/CV-02/live"))
+
+    def test_register_edit_and_disable_video_source(self):
+        response = self.client.post("/api/conveyors/", {"code": "CV-03", "name": "Third", "camera_name": "Top camera", "video_source": "conveyor_1_old.mp4"}, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["video_source"], "conveyor_1_old.mp4")
+        self.assertEqual(self.client.post("/api/conveyors/", {"code": "CV-03", "name": "Duplicate", "video_source": "conveyor_1.mp4"}, format="json").status_code, 400)
+        internal = APIClient()
+        self.assertEqual(internal.get("/api/vision/sources/").status_code, 403)
+        headers = {"HTTP_X_INTERNAL_TOKEN": settings.INTERNAL_SERVICE_TOKEN}
+        sources = internal.get("/api/vision/sources/", **headers).data
+        source = next(item for item in sources if item["conveyor_id"] == "CV-03")
+        self.assertEqual(source["source"], "/data/conveyor_1_old.mp4")
+        old = internal.post("/api/telemetry/ingest/", {"conveyor_id": "CV-03", "source_revision": "obsolete"}, format="json", **headers)
+        self.assertEqual(old.status_code, 409)
+        current = internal.post("/api/telemetry/ingest/", {"conveyor_id": "CV-03", "source_revision": source["revision"], "belt_speed_mps": 2}, format="json", **headers)
+        self.assertEqual(current.status_code, 201)
+        self.client.patch("/api/conveyors/CV-03/", {"active": False}, format="json")
+        self.assertEqual(self.client.get("/api/conveyors/CV-03/status/").data["state"], "DISABLED")
+        self.assertNotIn("CV-03", [item["conveyor_id"] for item in internal.get("/api/vision/sources/", **headers).data])
+        self.assertEqual(internal.post("/api/telemetry/ingest/", {"conveyor_id": "CV-03", "source_revision": source["revision"]}, format="json", **headers).status_code, 409)
+
+    @patch("apps.monitoring.views.requests.get")
+    def test_replacing_source_invalidates_previous_telemetry(self, get):
+        TelemetrySample.objects.create(conveyor=self.second, speed_mps=8)
+        self.client.patch("/api/conveyors/CV-02/", {"video_source": "conveyor_1.mp4"}, format="json")
+        get.side_effect = __import__("requests").ConnectionError()
+        self.assertEqual(self.client.get("/api/conveyors/CV-02/status/").status_code, 503)
+        fleet = self.client.get("/api/conveyors/").data
+        self.assertIsNone(next(item for item in fleet if item["code"] == "CV-02")["status"])
+        self.assertEqual(self.second.samples.count(), 1)
+
+    def test_upload_and_playback_require_login(self):
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Camera
+        with tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
+            video = SimpleUploadedFile("test.mp4", b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 30, content_type="video/mp4")
+            response = self.client.post("/api/conveyors/", {"code": "CV-04", "name": "Uploaded", "video_file": video}, format="multipart")
+            self.assertEqual(response.status_code, 201)
+            self.assertTrue(Camera.objects.get(conveyor__code="CV-04").video_file.name.startswith("videos/"))
+            playback = self.client.get("/api/conveyors/CV-04/video/")
+            self.assertEqual(playback.status_code, 200)
+            self.assertTrue(b"ftyp" in b"".join(playback.streaming_content))
+            self.assertEqual(APIClient().get("/api/conveyors/CV-04/video/").status_code, 401)
+            invalid = SimpleUploadedFile("fake.mp4", b"not a video")
+            self.assertEqual(self.client.post("/api/conveyors/", {"code": "CV-05", "name": "Invalid", "video_file": invalid}, format="multipart").status_code, 400)
+            self.assertEqual(self.client.post("/api/conveyors/", {"code": "CV-05", "name": "Bad path", "video_source": "../secret.mp4"}, format="json").status_code, 400)

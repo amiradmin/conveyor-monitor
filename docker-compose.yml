@@ -22,6 +22,7 @@ services:
       retries: 10
 
   minio:
+    profiles: ["object-storage"]
     build:
       context: ./services/minio
       args:
@@ -47,6 +48,7 @@ services:
       - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:${BACKEND_HOST_PORT:-8001}:8000"
     volumes:
       - ./backend:/app
+      - video_sources:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -57,7 +59,6 @@ services:
     build:
       context: ./services/vision-service
       network: host
-    gpus: all
     env_file:
       - .env
     environment:
@@ -76,14 +77,18 @@ services:
       EVIDENCE_WIDTH: ${EVIDENCE_WIDTH:-960}
       EVIDENCE_JPEG_QUALITY: ${EVIDENCE_JPEG_QUALITY:-82}
       EVIDENCE_VIDEO_ENCODER: ${EVIDENCE_VIDEO_ENCODER:-auto}
+      # Default local evidence storage keeps snapshot/clip review available
+      # without requiring an S3-compatible service for development demos.
+      LOCAL_EVIDENCE_DIR: /evidence
     ports:
       - "8010:8010"
     volumes:
       - ./services/vision-service:/app
       - ./frontend/public:/data:ro
+      - video_sources:/uploads:ro
+      - evidence_data:/evidence
     depends_on:
       - backend
-      - minio
 
   plc-gateway:
     build:
@@ -114,3 +119,5 @@ volumes:
   postgres_data:
   minio_data:
   frontend_node_modules:
+  video_sources:
+  evidence_data:

@@ -1,0 +1,51 @@
+{
+  "communities": {
+    "0": [
+      "app",
+      "app_beltdata",
+      "app_belts",
+      "app_dot",
+      "app_eventtemplates",
+      "app_metricicon",
+      "app_navicon"
+    ],
+    "1": [
+      "app_app",
+      "main"
+    ]
+  },
+  "cohesion": {
+    "0": 0.2857142857142857,
+    "1": 1.0
+  },
+  "gods": [
+    {
+      "id": "app_app",
+      "label": "App()",
+      "degree": 2
+    },
+    {
+      "id": "app_belts",
+      "label": "belts",
+      "degree": 1
+    },
+    {
+      "id": "app_beltdata",
+      "label": "beltData",
+      "degree": 1
+    },
+    {
+      "id": "app_eventtemplates",
+      "label": "eventTemplates",
+      "degree": 1
+    }
+  ],
+  "surprises": [],
+  "questions": [
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `belts`, `beltData`, `eventTemplates` to the rest of the system?",
+      "why": "3 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

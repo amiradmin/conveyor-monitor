@@ -3,6 +3,15 @@ import { API, authFetch, clearTokens } from './auth'
 const OVERLAY_ID = 'live-vision-alarm-overlay'
 const POLL_MS = 2000
 
+export function selectActiveAlarm(events) {
+  return events.filter((event) => event.active && !event.acknowledged && ['WARNING', 'CRITICAL'].includes(event.severity))
+    .sort((a, b) => {
+      const severity = Number(b.severity === 'CRITICAL') - Number(a.severity === 'CRITICAL')
+      const damage = (event) => Number(/^(TEAR|ALIGNMENT)_/.test(event.code || ''))
+      return severity || damage(b) - damage(a)
+    })[0] || null
+}
+
 const titles = {
   en: {
     ALIGNMENT_WARNING: 'Alignment warning',
@@ -107,7 +116,7 @@ function renderOverlay(event) {
 }
 
 async function fetchLatestAlarm() {
-  const response = await authFetch(`${API}/events/?conveyor=CV-01&acknowledged=false&limit=1`)
+  const response = await authFetch(`${API}/events/?conveyor=CV-01&acknowledged=false&active=true&limit=100`)
   if (response.status === 401) {
     clearTokens()
     window.location.reload()
@@ -115,7 +124,7 @@ async function fetchLatestAlarm() {
   }
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   const payload = await response.json()
-  return Array.isArray(payload) && payload.length ? payload[0] : null
+  return Array.isArray(payload) ? selectActiveAlarm(payload) : null
 }
 
 export function mountLiveAlerts() {

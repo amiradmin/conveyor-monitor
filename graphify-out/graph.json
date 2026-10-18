@@ -1,0 +1,206 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "Dot()",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L19",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "app_dot",
+      "community": 0,
+      "norm_label": "dot()"
+    },
+    {
+      "label": "MetricIcon()",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L21",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "app_metricicon",
+      "community": 0,
+      "norm_label": "metricicon()"
+    },
+    {
+      "label": "NavIcon()",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L20",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "app_navicon",
+      "community": 0,
+      "norm_label": "navicon()"
+    },
+    {
+      "label": "App()",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L22",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "app_app",
+      "community": 1,
+      "norm_label": "app()"
+    },
+    {
+      "label": "App.jsx",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app",
+      "community": 0,
+      "norm_label": "app.jsx"
+    },
+    {
+      "label": "beltData",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "app_beltdata",
+      "community": 0,
+      "norm_label": "beltdata"
+    },
+    {
+      "label": "belts",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L4",
+      "_origin": "ast",
+      "id": "app_belts",
+      "community": 0,
+      "norm_label": "belts"
+    },
+    {
+      "label": "eventTemplates",
+      "file_type": "code",
+      "source_file": "App.jsx",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "app_eventtemplates",
+      "community": 0,
+      "norm_label": "eventtemplates"
+    },
+    {
+      "label": "main.jsx",
+      "file_type": "code",
+      "source_file": "main.jsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "main",
+      "community": 1,
+      "norm_label": "main.jsx"
+    }
+  ],
+  "links": [
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "main",
+      "target": "app_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "main",
+      "target": "app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_eventtemplates",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_dot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_navicon",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_metricicon",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_belts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "App.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_beltdata",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "de4c2861610500ccee0f1e53de9d39ee4e0c6b91"
+}
