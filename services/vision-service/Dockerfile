@@ -3,9 +3,9 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=120 \
-    PIP_RETRIES=10 \
-    PIP_INDEX_URL=https://pypi.org/simple
+    PIP_DEFAULT_TIMEOUT=30 \
+    PIP_RETRIES=2 \
+    PIP_INDEX_URL=https://mirror.novin.cloud/artifactory/api/pypi/pypi/simple/
 
 WORKDIR /app
 
