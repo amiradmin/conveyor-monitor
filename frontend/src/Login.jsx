@@ -18,6 +18,7 @@ export default function Login({ lang, setLang, onAuthenticated }) {
   const rtl = RTL_LANGUAGES.has(lang)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -87,7 +88,12 @@ export default function Login({ lang, setLang, onAuthenticated }) {
           </label>
           <label>
             <span>{t.password}</span>
-            <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.passwordPlaceholder} required />
+            <div className="password-field">
+              <input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.passwordPlaceholder} required />
+              <button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </label>
 
           {error && <div className="login-error">{error}</div>}
