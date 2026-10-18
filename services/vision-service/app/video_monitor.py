@@ -20,6 +20,7 @@ import requests
 from minio import Minio
 
 from .engine import analyze
+from .belt_anomaly import BeltAnomalyDetector
 from .models import FrameMetrics, VisionResult
 
 
@@ -51,8 +52,11 @@ class VideoMonitor:
     up to the event in MinIO.
     """
 
-    def __init__(self) -> None:
-        self.source = os.getenv("VISION_VIDEO_SOURCE", "/data/conveyor_1.mp4")
+    def __init__(self, conveyor_id: str = "CV-01", source: str | None = None) -> None:
+        self.conveyor_id = conveyor_id
+        self.source = source or os.getenv("VISION_VIDEO_SOURCE", "/data/conveyor_1.mp4")
+        self._anomaly_detector = BeltAnomalyDetector() if conveyor_id == "CV-02" else None
+        self._preview: bytes | None = None
         self.loop = os.getenv("VISION_LOOP", "true").lower() == "true"
         self.publish_hz = max(0.2, float(os.getenv("VISION_PUBLISH_HZ", "2")))
         self.analysis_fps = max(self.publish_hz, float(os.getenv("VISION_ANALYSIS_FPS", "6")))
@@ -109,8 +113,13 @@ class VideoMonitor:
         with self._latest_lock:
             return self._latest.model_copy(deep=True) if self._latest else None
 
+    def preview(self) -> bytes | None:
+        with self._latest_lock:
+            return self._preview
+
     def diagnostics(self) -> dict[str, Any]:
         data = dict(self._diagnostics.__dict__)
+        data["conveyor_id"] = self.conveyor_id
         with self._evidence_lock:
             data["evidence_buffer_frames"] = len(self._evidence_frames)
         data["evidence_buffer_seconds"] = self.evidence_seconds
@@ -128,7 +137,9 @@ class VideoMonitor:
             raise RuntimeError("Evidence buffer is empty; no video frame is available yet.")
 
         alarm_id = int(alarm["alarm_id"])
-        conveyor_id = str(alarm.get("conveyor_id", "CV-01"))
+        conveyor_id = str(alarm.get("conveyor_id", self.conveyor_id))
+        if conveyor_id != self.conveyor_id:
+            raise ValueError("Alarm does not belong to this camera")
         code = str(alarm.get("code", "ALARM"))
         safe_code = "".join(ch.lower() if ch.isalnum() else "-" for ch in code).strip("-") or "alarm"
         now = datetime.now(timezone.utc)
@@ -319,6 +330,8 @@ class VideoMonitor:
                 self._diagnostics.height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
                 frame_sleep = 1.0 / fps if Path(self.source).is_file() else 0.0
                 self._prev_gray = None
+                if self._anomaly_detector:
+                    self._anomaly_detector.reset()
 
                 while not self._stop.is_set():
                     started = time.monotonic()
@@ -327,6 +340,9 @@ class VideoMonitor:
                         if self.loop and Path(self.source).is_file():
                             capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                             self._prev_gray = None
+                            self._smoothed.clear()
+                            if self._anomaly_detector:
+                                self._anomaly_detector.reset()
                             continue
                         raise RuntimeError("Vision source stopped returning frames")
 
@@ -347,6 +363,17 @@ class VideoMonitor:
                     self._last_analysis = now
                     effective_fps = 1.0 / max(analysis_interval, 1e-6)
                     metrics = self._estimate_metrics(frame, effective_fps)
+                    if self._anomaly_detector:
+                        preview = cv2.resize(frame, (960, int(frame.shape[0] * 960 / frame.shape[1])))
+                        for x, y, w, h in metrics.anomaly_regions:
+                            ph, pw = preview.shape[:2]
+                            cv2.rectangle(preview, (int(x * pw), int(y * ph)), (int((x + w) * pw), int((y + h) * ph)), (0, 80, 255), 2)
+                        label = "CALIBRATING" if metrics.detector_warming_up else f"ANOMALY SCORE {metrics.anomaly_score:.0%}"
+                        cv2.putText(preview, f"{self.conveyor_id} | {label}", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, .65, (0, 200, 255), 2)
+                        encoded_ok, encoded = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 78])
+                        if encoded_ok:
+                            with self._latest_lock:
+                                self._preview = encoded.tobytes()
 
                     if now - self._last_publish >= 1.0 / self.publish_hz:
                         result = analyze(metrics)
@@ -403,9 +430,12 @@ class VideoMonitor:
         resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
         return cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
-    @staticmethod
-    def _belt_mask(height: int, width: int) -> np.ndarray:
+    def _belt_mask(self, height: int, width: int) -> np.ndarray:
         mask = np.zeros((height, width), dtype=np.uint8)
+        if self.conveyor_id == "CV-02":
+            polygon = np.array([(int(x * width), int(y * height)) for x, y in ((.28, 0), (.70, 0), (.90, 1), (.10, 1))], np.int32)
+            cv2.fillPoly(mask, [polygon], 255)
+            return mask
         polygon = np.array(
             [
                 [int(0.44 * width), int(0.08 * height)],
@@ -492,13 +522,21 @@ class VideoMonitor:
         texture_quality = float(np.clip(edge_density / 0.22, 0.0, 1.0))
         confidence = float(np.clip(0.88 + 0.09 * texture_quality, 0.0, 0.98))
 
+        anomaly = self._anomaly_detector.detect(gray) if self._anomaly_detector else None
+        if anomaly:
+            tear_probability = anomaly["score"]
+            confidence = float(np.clip(cv2.Laplacian(gray, cv2.CV_64F).var() / 1000, 0, 1))
+
         return FrameMetrics(
-            conveyor_id="CV-01",
+            conveyor_id=self.conveyor_id,
             alignment_offset_mm=round(self._ema("alignment_mm", alignment_mm), 2),
             belt_speed_mps=round(self._ema("speed_mps", speed_mps), 3),
             material_area_m2=round(self._ema("material_area", material_area), 5),
-            tear_probability=round(self._ema("tear_probability", tear_probability), 4),
+            tear_probability=round(tear_probability if anomaly else self._ema("tear_probability", tear_probability), 4),
             confidence=round(self._ema("confidence", confidence), 4),
+            anomaly_score=anomaly["score"] if anomaly else 0.0,
+            anomaly_regions=anomaly["regions"] if anomaly else [],
+            detector_warming_up=anomaly["warming_up"] if anomaly else False,
         )
 
     def _push_backend(self, result: VisionResult) -> None:
@@ -509,6 +547,9 @@ class VideoMonitor:
             "volume_m3h": result.volume_m3h,
             "tear_probability": result.tear_probability,
             "confidence": result.confidence,
+            "anomaly_score": result.anomaly_score,
+            "anomaly_regions": result.anomaly_regions,
+            "detector_warming_up": result.detector_warming_up,
         }
         try:
             response = requests.post(

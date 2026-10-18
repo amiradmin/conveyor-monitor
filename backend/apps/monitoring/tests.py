@@ -56,6 +56,35 @@ class MonitoringApiTests(TestCase):
         self.assertEqual(response.data["tear_status"], "NORMAL")
         self.assertEqual(response.data["active_alarm_count"], 0)
 
+    def test_cv02_telemetry_and_alarms_are_isolated(self):
+        self._ingest(conveyor_id="CV-02", tear_probability=.8, anomaly_score=.8,
+                     anomaly_regions=[[.7, .2, .04, .2]])
+        response = self.client.get("/api/conveyors/CV-02/status/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["conveyor"], "CV-02")
+        self.assertEqual(response.data["vision_details"]["anomaly_score"], .8)
+        self.assertTrue(Alarm.objects.filter(conveyor__code="CV-02", code="BELT_ANOMALY_CRITICAL").exists())
+        self.assertEqual(self.conveyor.samples.count(), 0)
+        self.assertEqual(self.client.get("/api/events/?conveyor=CV-01").data, [])
+
+    @patch("apps.monitoring.views.requests.get")
+    def test_refresh_rejects_telemetry_from_another_camera(self, get):
+        from .views import _refresh_from_vision
+        get.return_value.json.return_value = {"conveyor_id": "CV-01", "tear_probability": .9}
+        cv02 = Conveyor.objects.create(code="CV-02", name="Second belt")
+        self.assertIsNone(_refresh_from_vision(cv02))
+        self.assertEqual(cv02.samples.count(), 0)
+        self.assertEqual(get.call_args.kwargs["params"], {"conveyor_id": "CV-02"})
+
+    @patch("apps.monitoring.views.requests.get")
+    def test_cv02_preview_requires_authentication_and_routes_camera(self, get):
+        get.return_value.content = b"jpeg"
+        self.assertEqual(self.internal_client.get("/api/conveyors/CV-02/frame/").status_code, 401)
+        response = self.client.get("/api/conveyors/CV-02/frame/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"jpeg")
+        self.assertEqual(get.call_args.kwargs["params"], {"conveyor_id": "CV-02"})
+
     def test_internal_ingest_requires_service_token_and_creates_alarms(self) -> None:
         payload = {
             "conveyor_id": "CV-01",

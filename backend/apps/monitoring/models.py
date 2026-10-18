@@ -34,6 +34,7 @@ class TelemetrySample(models.Model):
     volume_m3h = models.FloatField(null=True, blank=True)
     tear_probability = models.FloatField(null=True, blank=True)
     confidence = models.FloatField(null=True, blank=True)
+    vision_details = models.JSONField(default=dict, blank=True)
 
 
 class Alarm(models.Model):

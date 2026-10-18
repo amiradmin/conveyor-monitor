@@ -5,6 +5,7 @@ urlpatterns = [
     path("health/", views.health),
     path("conveyors/", views.conveyors),
     path("conveyors/<str:code>/status/", views.conveyor_status),
+    path("conveyors/<str:code>/frame/", views.conveyor_frame),
     path("demo/status/", views.demo_status),
     path("telemetry/ingest/", views.ingest_telemetry),
     path("events/", views.events),

@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import requests
 from django.conf import settings
 from django.db import IntegrityError, close_old_connections
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from minio import Minio
@@ -268,9 +269,9 @@ def _evaluate_alarms(conveyor: Conveyor, sample: TelemetrySample) -> None:
         warning_threshold=settings.TEAR_WARNING_PROBABILITY,
         critical_threshold=settings.TEAR_CRITICAL_PROBABILITY,
         recovery_threshold=settings.TEAR_RECOVERY_PROBABILITY,
-        warning_code="TEAR_WARNING",
-        critical_code="TEAR_CRITICAL",
-        message=f"Tear probability reached {tear_probability:.0%}.",
+        warning_code="BELT_ANOMALY_WARNING" if conveyor.code == "CV-02" else "TEAR_WARNING",
+        critical_code="BELT_ANOMALY_CRITICAL" if conveyor.code == "CV-02" else "TEAR_CRITICAL",
+        message=(f"Visible belt-edge anomaly score reached {tear_probability:.0%}." if conveyor.code == "CV-02" else f"Tear probability reached {tear_probability:.0%}."),
     )
     _sync_alarm_condition(
         conveyor,
@@ -293,6 +294,11 @@ def _create_sample(conveyor: Conveyor, payload: dict[str, Any]) -> TelemetrySamp
         volume_m3h=_float(payload.get("volume_m3h")),
         tear_probability=max(0.0, min(1.0, _float(payload.get("tear_probability")))),
         confidence=max(0.0, min(1.0, _float(payload.get("ai_confidence", payload.get("confidence"))))),
+        vision_details={
+            "anomaly_score": max(0.0, min(1.0, _float(payload.get("anomaly_score")))),
+            "anomaly_regions": payload.get("anomaly_regions", []),
+            "detector_warming_up": bool(payload.get("detector_warming_up", False)),
+        },
     )
     _evaluate_alarms(conveyor, sample)
     return sample
@@ -304,9 +310,11 @@ def _latest_sample(conveyor: Conveyor) -> TelemetrySample | None:
 
 def _refresh_from_vision(conveyor: Conveyor) -> TelemetrySample | None:
     try:
-        response = requests.get(f"{settings.VISION_SERVICE_URL}/demo", timeout=2.5)
+        response = requests.get(f"{settings.VISION_SERVICE_URL}/demo", params={"conveyor_id": conveyor.code}, timeout=2.5)
         response.raise_for_status()
         payload = response.json()
+        if payload.get("conveyor_id") != conveyor.code:
+            return None
         return _create_sample(conveyor, payload)
     except (requests.RequestException, ValueError, TypeError):
         return None
@@ -355,6 +363,7 @@ def _status_payload(conveyor: Conveyor, sample: TelemetrySample, source: str) ->
         "tear_probability": tear_probability,
         "tear_status": _tear_status(tear_probability),
         "ai_confidence": confidence,
+        "vision_details": sample.vision_details,
         "active_alarm_count": conveyor.alarms.filter(active=True).count(),
         "plc_write_enabled": settings.PLC_WRITE_ENABLED,
         "plc_state": "AUTO_RUNNING" if state == "RUNNING" else state,
@@ -391,6 +400,18 @@ def conveyors(request):
 @api_view(["GET"])
 def conveyor_status(request, code: str = "CV-01"):
     return _status_response(code)
+
+
+@api_view(["GET"])
+def conveyor_frame(request, code: str):
+    if code not in {"CV-01", "CV-02"}:
+        return Response({"detail": "Unknown conveyor"}, status=404)
+    try:
+        response = requests.get(f"{settings.VISION_SERVICE_URL}/frame.jpg", params={"conveyor_id": code}, timeout=2.5)
+        response.raise_for_status()
+        return HttpResponse(response.content, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    except requests.RequestException:
+        return Response({"detail": "Camera frame unavailable"}, status=503)
 
 
 @api_view(["GET"])

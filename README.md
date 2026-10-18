@@ -41,6 +41,33 @@ The Alarm row stores the snapshot/clip object names and an evidence state (`PEND
 
 The current estimators are calibration-based CV, not a trained production tear detector. The service API is intentionally separated so trained models can replace individual estimators later without changing the frontend/backend contract.
 
+## CV-02 belt-edge anomaly demonstration
+
+Select **CV-02** in the dashboard header. The included `frontend/public/conveyor_2.mp4`
+is a 960 × 540, 15 fps browser-friendly copy of the supplied 40-second clip.
+`CV02_VIDEO_SOURCE` defaults to `/data/conveyor_2.mp4`. CV-01 retains its own source.
+Both monitors run in the existing CPU OpenCV vision service; no model download is required.
+
+CV-02 learns a healthy reference from the first 12 analyzed frames (about two
+seconds at the default 6 fps). It monitors the exposed **right belt edge**,
+excludes central ore, and requires a change to persist for three analyses.
+The annotated image comes from the detector, so its boxes and score correspond
+to the displayed frame. Camera telemetry, events, and evidence buffers stay separate.
+The clip loops and the reference resets at each restart. The supplied demonstration
+crosses the warning threshold near 36 seconds; alert timing also depends on
+analysis rate, smoothing, and publishing intervals.
+
+The reported value is a calibrated visual anomaly score, **not a trained tear
+probability**. Boxes identify changed edge regions, not a damage segmentation.
+Lighting, camera motion, occlusion, or an unhealthy startup reference can affect
+results. This profile is specific to this fixed view and must be recalibrated for
+another camera; hidden belt damage is outside its coverage. Speed/alignment/flow
+remain illustrative calibration-based estimates. PLC writes remain disabled by default.
+
+After updating, run `docker compose up --build -d`; Django applies the telemetry
+metadata migration at startup. The CV-02 source is available in the repository;
+the CV-01 development clip must still be provided as described below.
+
 ## Safety defaults
 
 `PLC_WRITE_ENABLED=false` by default. In this mode the PLC gateway records and reports stop requests but does not write to a real PLC.

@@ -95,6 +95,8 @@ function eventTitle(event, t) {
     ALIGNMENT_CRITICAL: t.alarmAlignmentCritical,
     TEAR_WARNING: t.alarmTearWarning,
     TEAR_CRITICAL: t.alarmTearCritical,
+    BELT_ANOMALY_WARNING: t.anomalyWarning,
+    BELT_ANOMALY_CRITICAL: t.anomalyCritical,
     OVERLOAD_WARNING: t.alarmOverloadWarning,
     OVERLOAD_CRITICAL: t.alarmOverloadCritical,
   }
@@ -153,6 +155,42 @@ export default function App({ lang, setLang, onLogout }) {
   const [acknowledgingId, setAcknowledgingId] = useState(null)
   const [evidenceLoadingId, setEvidenceLoadingId] = useState(null)
   const [evidenceViewer, setEvidenceViewer] = useState(null)
+  const [conveyor, setConveyor] = useState('CV-01')
+  const [frameUrl, setFrameUrl] = useState('')
+  const [frameError, setFrameError] = useState(false)
+
+  useEffect(() => {
+    if (conveyor !== 'CV-02') return undefined
+    let mounted = true
+    let objectUrl = ''
+    let busy = false
+    const controller = new AbortController()
+    const loadFrame = async () => {
+      if (busy) return
+      busy = true
+      try {
+        const response = await authFetch(`${API}/conveyors/${conveyor}/frame/`, { signal: controller.signal })
+        if (!response.ok) throw new Error('Frame unavailable')
+        const blob = await response.blob()
+        if (!mounted) return
+        const next = URL.createObjectURL(blob)
+        if (objectUrl) URL.revokeObjectURL(objectUrl)
+        objectUrl = next
+        setFrameUrl(next)
+        setFrameError(false)
+      } catch (e) {
+        if (mounted) { setFrameError(true); setFrameUrl('') }
+      } finally { busy = false }
+    }
+    loadFrame()
+    const timer = window.setInterval(loadFrame, 750)
+    return () => {
+      mounted = false
+      controller.abort()
+      window.clearInterval(timer)
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [conveyor])
 
   useEffect(() => {
     let mounted = true
@@ -169,8 +207,8 @@ export default function App({ lang, setLang, onLogout }) {
     const load = async () => {
       try {
         const [statusResponse, eventsResponse] = await Promise.all([
-          authFetch(`${API}/conveyors/CV-01/status/`),
-          authFetch(`${API}/events/?conveyor=CV-01&limit=5`),
+          authFetch(`${API}/conveyors/${conveyor}/status/`),
+          authFetch(`${API}/events/?conveyor=${conveyor}&limit=5`),
         ])
         const [statusPayload, eventPayload] = await Promise.all([
           parseResponse(statusResponse),
@@ -191,7 +229,7 @@ export default function App({ lang, setLang, onLogout }) {
       mounted = false
       window.clearInterval(timer)
     }
-  }, [onLogout])
+  }, [onLogout, conveyor])
 
   async function acknowledgeEvent(eventId) {
     setAcknowledgingId(eventId)
@@ -296,7 +334,13 @@ export default function App({ lang, setLang, onLogout }) {
             <div className="brand-icon"><Icon name="conveyor" size={44} /></div>
             <h1>{t.appName}</h1>
             <span className="title-divider" />
-            <span className="asset-id">CV-01</span>
+            <select className="conveyor-selector" aria-label={t.selectConveyor} value={conveyor} onChange={(event) => {
+              setConveyor(event.target.value)
+              setData(null); setEvents([]); setEvidenceViewer(null); setError(''); setFrameUrl(''); setFrameError(false)
+            }}>
+              <option value="CV-01">CV-01</option>
+              <option value="CV-02">CV-02</option>
+            </select>
           </div>
           <div className="topbar-actions">
             <div className="language-switcher header-language-select">
@@ -323,6 +367,12 @@ export default function App({ lang, setLang, onLogout }) {
         <section className="dashboard-grid">
           <article className="vision-panel">
             <div className="camera-scene">
+              {conveyor === 'CV-01' ? (
+                <video key={conveyor} className="camera-video" src="/conveyor_1.mp4" autoPlay loop muted playsInline onError={() => setFrameError(true)} />
+              ) : frameUrl && !frameError ? (
+                <img className="camera-video cv02-frame" src={frameUrl} alt={t.beltAnomaly} />
+              ) : null}
+              {(frameError || (conveyor === 'CV-02' && !frameUrl)) && <div className="camera-unavailable">{t.cameraUnavailable}</div>}
               <div className="scene-rails scene-rails-left" />
               <div className="scene-rails scene-rails-right" />
               <div className="scene-belt">
@@ -332,8 +382,9 @@ export default function App({ lang, setLang, onLogout }) {
               <div className="offset-guide"><i/><i/><span>{t.offset}<strong>{view.alignment} mm</strong></span></div>
               <div className="live-badge">
                 <div><span className="state-dot small"/> <strong>{t.liveVision}</strong></div>
-                <small>CV-01&nbsp;&nbsp;·&nbsp;&nbsp;1280 × 720</small>
+              <small>{conveyor} · {t.recordedDemo}</small>
               </div>
+              {conveyor === 'CV-02' && <div className="detector-caption">{data?.vision_details?.detector_warming_up ? t.calibrating : t.beltAnomaly}</div>}
               {activeAlarm && (
                 <div className={`live-alarm-banner ${activeAlarm.severity === 'CRITICAL' ? 'critical' : 'warning'}`}>
                   <div className="live-alarm-copy">
@@ -357,8 +408,8 @@ export default function App({ lang, setLang, onLogout }) {
             <MetricRow icon="alignment" label={t.alignment} value={view.alignment} unit=" mm"><Progress value={view.alignment} min={-50} max={50} marker /></MetricRow>
             <MetricRow icon="material" label={t.materialFlow} value={Math.round(view.materialFlow)} unit=" t/h"><Progress value={view.materialFlow} min={0} max={800} /></MetricRow>
             <MetricRow icon="load" label={t.overload} value={`${view.loadPercent}%`} valueClass={view.overloadValueClass} badge={view.overloadState} badgeClass={view.overloadBadgeClass}><Progress value={Math.min(view.loadPercent, 120)} min={0} max={120} tone={view.overloadTone} /></MetricRow>
-            <MetricRow icon="shield" label={t.tearRisk} value={`${view.tearRisk}%`} valueClass="good-value"><Progress value={view.tearRisk} min={0} max={100} /></MetricRow>
-            <MetricRow icon="brain" label={t.aiConfidence} value={`${view.confidence}%`}><Progress value={view.confidence} min={0} max={100} /></MetricRow>
+            <MetricRow icon="shield" label={conveyor === 'CV-02' ? t.beltAnomaly : t.tearRisk} value={`${view.tearRisk}%`} valueClass={view.tearRisk >= 65 ? 'critical-value' : view.tearRisk >= 35 ? 'warning-value' : 'good-value'}><Progress value={view.tearRisk} min={0} max={100} tone={view.tearRisk >= 65 ? 'critical' : view.tearRisk >= 35 ? 'warning' : 'normal'} /></MetricRow>
+            <MetricRow icon="brain" label={conveyor === 'CV-02' ? t.imageQuality : t.aiConfidence} value={`${view.confidence}%`}><Progress value={view.confidence} min={0} max={100} /></MetricRow>
             <div className="metric-row plc-row">
               <div className="metric-icon"><Icon name="plc" size={36}/></div>
               <div className="metric-copy"><span className="metric-label">{t.plcReadOnly}</span><div className="plc-value">{view.plcRunning ? t.autoRunning : t.connected}</div></div>

@@ -1,5 +1,9 @@
 const SIDEBAR_SELECTOR = '.sidebar'
 
+function selectedConveyor() {
+  return document.querySelector('.conveyor-selector')?.value === 'CV-02' ? 'CV-02' : 'CV-01'
+}
+
 function scrollToElement(selector) {
   const element = document.querySelector(selector)
   if (!element) return
@@ -55,7 +59,7 @@ function buildSettingsDrawer(sidebar, onClose) {
   drawer.innerHTML = `
     <div class="sidebar-settings-head">
       <div>
-        <span>CV-01</span>
+        <span>${selectedConveyor()}</span>
         <strong>${settingsLabel}</strong>
       </div>
       <button type="button" class="sidebar-settings-close" aria-label="Close">×</button>
@@ -116,6 +120,8 @@ export function mountSidebarEnhancer() {
   footer.innerHTML = '<span class="sidebar-status-dot"></span><strong>CV-01</strong><small>ONLINE</small>'
 
   const ensureChrome = () => {
+    const asset = footer.querySelector('strong')
+    if (asset && asset.textContent !== selectedConveyor()) asset.textContent = selectedConveyor()
     const brand = sidebar.querySelector('.sidebar-brand')
     if (brand && !brand.querySelector('.sidebar-brand-caption')) {
       const caption = document.createElement('span')

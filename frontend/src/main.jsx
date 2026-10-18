@@ -4,8 +4,6 @@ import App from './App'
 import Login from './Login'
 import { clearTokens, hasSession } from './auth'
 import { RTL_LANGUAGES } from './i18n'
-import { mountLiveVideo } from './liveVideo'
-import { mountLiveAlerts } from './liveAlerts'
 import { mountSidebarEnhancer } from './sidebarEnhancer'
 import './styles.css'
 import './auth.css'
@@ -33,13 +31,9 @@ function Root() {
 
   useEffect(() => {
     if (!authenticated) return undefined
-    const unmountVideo = mountLiveVideo()
-    const unmountAlerts = mountLiveAlerts()
     const unmountSidebar = mountSidebarEnhancer()
     return () => {
       unmountSidebar?.()
-      unmountAlerts?.()
-      unmountVideo?.()
     }
   }, [authenticated])
 

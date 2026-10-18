@@ -14,3 +14,8 @@
 .camera-scene .live-badge {
   pointer-events: none;
 }
+
+.conveyor-selector { background: #112534; color: #e8f4fb; border: 1px solid #355366; border-radius: 6px; padding: 8px 12px; font: inherit; }
+.camera-scene .cv02-frame { object-fit: contain; z-index: 5; }
+.camera-unavailable { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: #101c27; color: #e8f4fb; }
+.detector-caption { position: absolute; bottom: 12px; left: 12px; z-index: 7; background: #101c27e8; color: #e8f4fb; padding: 8px 12px; border-radius: 5px; }

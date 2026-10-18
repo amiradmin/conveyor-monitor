@@ -8,6 +8,9 @@ class FrameMetrics(BaseModel):
     material_area_m2: float = Field(default=0.0, ge=0)
     tear_probability: float = Field(default=0.0, ge=0, le=1)
     confidence: float = Field(default=0.0, ge=0, le=1)
+    anomaly_score: float = Field(default=0.0, ge=0, le=1)
+    anomaly_regions: list[list[float]] = Field(default_factory=list)
+    detector_warming_up: bool = False
 
 
 class VisionResult(FrameMetrics):
